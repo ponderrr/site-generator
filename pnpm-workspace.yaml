@@ -1,0 +1,15 @@
+packages:
+  - 'packages/*'
+
+# Performance optimizations
+nodeLinker: hoisted
+shamefullyHoist: true
+strictPeerDependencies: false
+
+# Memory and performance settings
+enablePrePostScripts: true
+resolutionMode: highest
+
+# Parallel installation settings
+progress: true
+fetchRetries: 3
