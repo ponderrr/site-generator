@@ -127,25 +127,42 @@ export class PageTypeClassifier implements Analyzer {
 
     for (const [type, patterns] of this.patterns) {
       let score = 0;
+      let matchCount = 0;
 
       for (const pattern of patterns) {
+        let patternScore = 0;
+
         if (pattern.url && pattern.url.test(page.url)) {
-          score += pattern.weight;
+          patternScore += pattern.weight * 1.2; // Boost URL matches
+          matchCount++;
         }
         if (pattern.heading && pattern.heading.test(page.title)) {
-          score += pattern.weight;
+          patternScore += pattern.weight * 1.1; // Boost title matches
+          matchCount++;
         }
         if (pattern.content && pattern.content.test(page.markdown)) {
-          score += pattern.weight;
+          patternScore += pattern.weight * 0.8; // Content matches are good but less specific
+          matchCount++;
         }
+
+        // Bonus for multiple pattern matches within the same type
+        if (matchCount > 1) {
+          patternScore *= 1.3;
+        }
+
+        score += patternScore;
       }
 
-      scores.set(type, Math.min(score, 1.0));
+      // Normalize and boost scores for types with multiple matches
+      const normalizedScore = Math.min(score, 1.0);
+      const boostedScore = matchCount > 0 ? normalizedScore * (1 + (matchCount * 0.1)) : normalizedScore;
+
+      scores.set(type, Math.min(boostedScore, 1.0));
     }
 
     // Set default score for 'other' type
     if (!scores.has('other')) {
-      scores.set('other', 0.1);
+      scores.set('other', 0.05); // Lower default for better discrimination
     }
 
     return scores;
@@ -295,15 +312,26 @@ export class PageTypeClassifier implements Analyzer {
     const predictions: number[] = [];
 
     for (let i = 0; i < this.typeIndex.size; i++) {
-      // Simple heuristic-based prediction
-      let score = Math.random() * 0.3; // Base random score
+      // Enhanced heuristic-based prediction with better scoring
+      let score = 0.1; // Base score
 
-      // Add bias based on feature patterns
-      if (features[0] > 0.8) score += 0.2; // Long URLs might be documentation
-      if (features[5] > 0.5) score += 0.2; // Many headings suggest structured content
-      if (features[10] > 0.3) score += 0.2; // Code blocks suggest technical content
+      // URL pattern matching (strong signal)
+      if (features[0] > 0.8) score += 0.4; // Long URLs often indicate documentation
+      if (features[1] > 0.6) score += 0.3; // Many path segments suggest complex structure
+      if (features[2] > 0.5) score += 0.2; // Query parameters suggest dynamic content
 
-      predictions.push(Math.min(score, 1.0));
+      // Content structure (medium signal)
+      if (features[5] > 0.4) score += 0.3; // Many headings suggest structured content
+      if (features[6] > 0.3) score += 0.25; // Many links suggest reference material
+      if (features[7] > 0.2) score += 0.2; // Code blocks suggest technical content
+
+      // Metadata (medium signal)
+      if (features[12] > 0.5) score += 0.2; // Has description suggests well-structured content
+      if (features[13] > 0.5) score += 0.15; // Has keywords suggests SEO optimization
+
+      // Add some randomness but cap at reasonable levels
+      score += Math.random() * 0.1;
+      predictions.push(Math.min(score, 0.9)); // Cap at 0.9 to leave room for perfect matches
     }
 
     return predictions;

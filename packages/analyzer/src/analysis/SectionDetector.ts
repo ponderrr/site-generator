@@ -68,10 +68,10 @@ export class SectionDetector implements Analyzer {
       {
         type: 'content',
         indicators: [
-          { heading: /overview|details|information|content/i, weight: 0.2 },
-          { structure: 'paragraphs', weight: 0.2 },
-          { wordCount: { min: 100, max: 1000 }, weight: 0.3 },
-          { bulletPoints: { min: 0 }, weight: -0.1 }, // Lower priority for list-heavy content
+          { heading: /overview|details|information|content|section|chapter/i, weight: 0.15 },
+          { structure: 'paragraphs', weight: 0.3 },
+          { wordCount: { min: 20, max: 2000 }, weight: 0.2 }, // More flexible word count
+          { bulletPoints: { min: 0 }, weight: 0.1 }, // Neutral for list content
         ],
       },
       {
@@ -294,6 +294,16 @@ export class SectionDetector implements Analyzer {
         };
       } else if (currentSection) {
         currentSection.content.push(element);
+      } else if (element.type === 'paragraph' || element.type === 'list' || element.type === 'code') {
+        // Create sections for standalone content elements
+        if (currentSection) {
+          sections.push(currentSection);
+        }
+
+        currentSection = {
+          content: [element],
+          position: element.line,
+        };
       }
     }
 
@@ -314,8 +324,18 @@ export class SectionDetector implements Analyzer {
     }
 
     // Get best match
-    const bestMatch = Array.from(scores.entries())
-      .sort((a, b) => b[1] - a[1])[0];
+    const sortedScores = Array.from(scores.entries())
+      .sort((a, b) => b[1] - a[1]);
+
+    let bestMatch = sortedScores[0];
+
+    // If the best match has low confidence, check if this should be content
+    if (bestMatch[1] < 0.3) {
+      const contentScore = scores.get('content') || 0;
+      if (contentScore > 0.1 || this.shouldBeContentSection(candidate)) {
+        bestMatch = ['content', Math.max(contentScore, 0.2)];
+      }
+    }
 
     return {
       id: this.generateId(),
@@ -352,19 +372,20 @@ export class SectionDetector implements Analyzer {
     pageUrl: string
   ): number {
     // Position indicator
-    if (indicator.position === 'first' && candidate.position < 10) {
+    if (indicator.position === 'first' && candidate.position < 20) {
       return 1;
     }
-    if (indicator.position === 'last' && candidate.position > 100) {
+    if (indicator.position === 'last' && candidate.position > 50) {
       return 1;
     }
     if (indicator.position === 'middle') {
       return 0.5;
     }
 
-    // Heading indicator
+    // Heading indicator - more lenient matching
     if (indicator.heading && candidate.heading) {
-      if (indicator.heading.test(candidate.heading.text)) {
+      const headingText = candidate.heading.text.toLowerCase();
+      if (indicator.heading.test(headingText) || headingText.includes(indicator.heading.source.slice(1, -1))) {
         return 1;
       }
     }
@@ -527,6 +548,18 @@ export class SectionDetector implements Analyzer {
 
   private generateId(): string {
     return 'section_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  private shouldBeContentSection(candidate: SectionCandidate): boolean {
+    // Sections should be content if they:
+    // 1. Have reasonable word count (20-2000 words)
+    // 2. Have paragraph content
+    // 3. Don't match specific patterns well
+
+    const wordCount = this.countWords(candidate);
+    const hasParagraphs = candidate.content.some(c => c.type === 'paragraph');
+
+    return wordCount >= 20 && wordCount <= 2000 && hasParagraphs;
   }
 
   /**

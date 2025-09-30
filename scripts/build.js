@@ -14,7 +14,6 @@ console.log(`💾 Memory limit: ${maxOldSpaceSize}MB`);
 // Build command with optimized Node.js flags
 const nodeFlags = [
   `--max-old-space-size=${maxOldSpaceSize}`,
-  '--optimize-for-size',
   '--enable-source-maps',
   '--experimental-specifier-resolution=node'
 ];

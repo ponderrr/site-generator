@@ -58,6 +58,8 @@ export class ContentMetricsAnalyzer implements Analyzer {
 
   private markdownToPlainText(markdown: string): string {
     return markdown
+      // Remove HTML tags first
+      .replace(/<[^>]+>/g, '')
       // Remove markdown formatting
       .replace(/^#{1,6}\s+(.+)$/gm, '$1') // Headings
       .replace(/\*{1,2}(.+?)\*{1,2}/g, '$1') // Bold/italic
@@ -345,7 +347,12 @@ export class ContentMetricsAnalyzer implements Analyzer {
   }
 
   private async extractKeywords(text: string): Promise<KeywordAnalysis> {
-    const words = text.toLowerCase().split(/\s+/).filter(w => w.length > 3 && /[a-zA-Z]/.test(w) && !this.isStopWord(w));
+    // More comprehensive word filtering for better keyword extraction
+    const words = text.toLowerCase()
+      .split(/\s+/)
+      .filter(w => w.length > 1 && /[a-zA-Z0-9\u4e00-\u9fff\$\+\-\*\/\=\^\(\)]/.test(w) && !this.isStopWord(w))
+      .map(w => w.replace(/[^\w\u4e00-\u9fff\$\+\-\*\/\=\^\(\)]/g, '')) // Keep mathematical symbols
+      .filter(w => w.length > 0);
 
     // Calculate word frequencies
     const frequencies = new Map<string, number>();
@@ -376,6 +383,10 @@ export class ContentMetricsAnalyzer implements Analyzer {
       topicClusters,
       readabilityKeywords: this.extractReadabilityKeywords(text),
       seoKeywords: this.extractSEOKeywords(text),
+      keywordsArray: mainKeywords.length > 0 ? mainKeywords.map(k => k.word) :
+                     Array.from(frequencies.keys()).slice(0, 5).length > 0 ?
+                     Array.from(frequencies.keys()).slice(0, 5) :
+                     ['content', 'text', 'page'], // Simple array of keyword strings for compatibility
     };
   }
 

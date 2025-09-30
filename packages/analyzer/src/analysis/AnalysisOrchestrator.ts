@@ -55,7 +55,9 @@ export class AnalysisOrchestrator {
     this.resultCache = new LRUCache({
       max: 1000,
       ttl: this.analysisOptions.cacheTTL,
-      sizeCalculation: (result: PageAnalysis) => result.embeddings?.length || 1,
+      updateAgeOnGet: true,
+      updateAgeOnHas: true,
+      allowStale: true
     });
 
     this.setupWorkerMonitoring();
@@ -167,8 +169,8 @@ export class AnalysisOrchestrator {
 
       const analysisResult: AnalysisResult = {
         ...result.result,
-        crossReferences: [],
-        relatedPages: [],
+        crossReferences: result.result.crossReferences || [],
+        relatedPages: result.result.relatedPages || [],
       };
 
       // Cache result
