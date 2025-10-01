@@ -1,3 +1,43 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:5de303df01be2312071be13dc47cdef480951c5e99509ed0b99e403c5b791280
-size 1204
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": "src",
+
+    "strict": true,
+    "noEmit": false,
+    "emitDeclarationOnly": false,
+
+    "incremental": true,
+    "tsBuildInfoFile": "../../.cache/core.tsbuildinfo",
+    "skipLibCheck": true,
+    "preserveWatchOutput": true,
+    "assumeChangesOnlyAffectDirectDependencies": true,
+
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "include": ["src/**/*", "src/workers/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+}

@@ -1,3 +1,26 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:bfdbd222a25f92c8eac67bd3b48e8466cc9df2d56364ae15760ee07910e51ac6
-size 735
+{
+  "name": "@site-generator/analyzer",
+  "version": "0.1.0",
+  "description": "Content analysis engine for the site generator",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "clean": "rm -rf dist .cache"
+  },
+  "dependencies": {
+    "@site-generator/core": "workspace:*",
+    "unified": "^11.0.4",
+    "remark-parse": "^11.0.0",
+    "remark-frontmatter": "^5.0.0",
+    "mdast-util-to-string": "^4.0.0",
+    "natural": "^6.12.0",
+    "ml-kmeans": "^6.0.0",
+    "vectordb": "^0.4.9"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

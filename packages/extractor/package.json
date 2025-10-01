@@ -1,3 +1,26 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:f00bff38535b5561c8d909edd1d4e55052f7925782bf92213d4b2ca61fd68c9e
-size 726
+{
+  "name": "@site-generator/extractor",
+  "version": "0.1.0",
+  "description": "Content extraction logic for the site generator",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "clean": "rm -rf dist .cache"
+  },
+  "dependencies": {
+    "@site-generator/core": "workspace:*",
+    "playwright": "^1.41.1",
+    "turndown": "^7.1.2",
+    "cheerio": "^1.0.0-rc.12",
+    "robots-parser": "^3.0.1",
+    "p-throttle": "^6.1.0",
+    "sharp": "^0.33.2",
+    "stream-chain": "^2.2.5"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

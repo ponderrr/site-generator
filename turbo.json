@@ -1,3 +1,37 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:bf035a77854f77a10e529ca02491726e1c704df79e527523fbb7346e595f9b74
-size 709
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "cache": true
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "cache": true,
+      "parallel": true
+    },
+    "lint": {
+      "dependsOn": ["^build"],
+      "cache": true
+    },
+    "type-check": {
+      "dependsOn": ["^build"],
+      "cache": true
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "clean": {
+      "cache": false
+    }
+  },
+  "globalDependencies": ["tsconfig.json", "package.json"],
+  "globalEnv": ["NODE_ENV", "CI"],
+  "experimentalSpaces": {
+    "enabled": true,
+    "parallel": 16
+  }
+}
