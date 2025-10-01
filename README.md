@@ -35,9 +35,24 @@ The system is organized as a monorepo with specialized packages:
 
 ## 🚀 Quick Start
 
+### Prerequisites
+
+- **Node.js** >= 20.0.0
+- **pnpm** >= 8.0.0
+- **Git LFS** >= 3.0.0 ([Install](https://git-lfs.github.com/))
+
+> **Note:** This project uses Git LFS for large binary files. Run `git lfs install` before cloning.
+
 ### Installation
 
 ```bash
+# Clone the repository
+git clone <repository-url>
+cd site-generator
+
+# Initialize Git LFS (one-time setup)
+git lfs install
+
 # Install dependencies
 pnpm install
 ```
@@ -160,3 +175,23 @@ The system is designed to handle:
 - Comprehensive testing and performance monitoring
 
 This platform provides a solid foundation for building advanced content processing applications with enterprise-grade performance and reliability.
+
+## 🤝 Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed setup instructions, development workflow, and guidelines.
+
+### Quick Contributor Setup
+
+```bash
+# Clone and setup
+git clone <repository-url>
+cd site-generator
+git lfs install
+pnpm install
+
+# Verify setup
+pnpm build
+pnpm test
+```
+
+For detailed instructions, troubleshooting, and best practices, see [CONTRIBUTING.md](./CONTRIBUTING.md).

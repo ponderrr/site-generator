@@ -1,47 +1,84 @@
 # Set default behavior to automatically normalize line endings
 * text=auto
 
-# Binary files that should be handled by Git LFS
+# ============================================================================
+# Git LFS Configuration
+# ============================================================================
+# IMPORTANT: Only track LARGE BINARY files with LFS
+# DO NOT track: configuration files, lock files, or files in .gitignore
+# 
+# Guidelines:
+# - Only files > 1MB should be considered for LFS
+# - Binary files that change infrequently
+# - NOT text files that are essential for builds (package.json, tsconfig.json, etc.)
+# ============================================================================
+
+# Compressed Archives (only if > 1MB and needed in repo)
 *.zip filter=lfs diff=lfs merge=lfs -text
 *.tar.gz filter=lfs diff=lfs merge=lfs -text
 *.rar filter=lfs diff=lfs merge=lfs -text
 *.7z filter=lfs diff=lfs merge=lfs -text
-*.jpg filter=lfs diff=lfs merge=lfs -text
-*.jpeg filter=lfs diff=lfs merge=lfs -text
-*.png filter=lfs diff=lfs merge=lfs -text
-*.gif filter=lfs diff=lfs merge=lfs -text
-*.bmp filter=lfs diff=lfs merge=lfs -text
-*.tiff filter=lfs diff=lfs merge=lfs -text
-*.webp filter=lfs diff=lfs merge=lfs -text
-*.pdf filter=lfs diff=lfs merge=lfs -text
-*.mp4 filter=lfs diff=lfs merge=lfs -text
-*.avi filter=lfs diff=lfs merge=lfs -text
-*.mov filter=lfs diff=lfs merge=lfs -text
-*.wmv filter=lfs diff=lfs merge=lfs -text
-*.flv filter=lfs diff=lfs merge=lfs -text
-*.mkv filter=lfs diff=lfs merge=lfs -text
-*.mp3 filter=lfs diff=lfs merge=lfs -text
-*.wav filter=lfs diff=lfs merge=lfs -text
-*.flac filter=lfs diff=lfs merge=lfs -text
-*.aac filter=lfs diff=lfs merge=lfs -text
-*.ogg filter=lfs diff=lfs merge=lfs -text
 
-# Large text files that might benefit from LFS
-*.log filter=lfs diff=lfs merge=lfs -text
-*.sql filter=lfs diff=lfs merge=lfs -text
-*.csv filter=lfs diff=lfs merge=lfs -text
-*.tsv filter=lfs diff=lfs merge=lfs -text
-*.json filter=lfs diff=lfs merge=lfs -text
-*.xml filter=lfs diff=lfs merge=lfs -text
+# Images (only large assets needed in repo - most should be externalized)
+# Note: Consider if these truly need to be in the repo or should be in a CDN/asset server
+extracted/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.png filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.gif filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.bmp filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.tiff filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.webp filter=lfs diff=lfs merge=lfs -text
 
-# Node.js specific
-package-lock.json filter=lfs diff=lfs merge=lfs -text
-yarn.lock filter=lfs diff=lfs merge=lfs -text
-pnpm-lock.yaml filter=lfs diff=lfs merge=lfs -text
+# Documents (only large documents > 1MB)
+extracted/**/*.pdf filter=lfs diff=lfs merge=lfs -text
 
-# TypeScript build info
-*.tsbuildinfo filter=lfs diff=lfs merge=lfs -text
+# Video files (should generally NOT be in Git - use external storage)
+# Only include if absolutely necessary and part of test fixtures
+extracted/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.avi filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.mov filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.wmv filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.flv filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.mkv filter=lfs diff=lfs merge=lfs -text
 
-# Cache files
-.cache/** filter=lfs diff=lfs merge=lfs -text
-.turbo/** filter=lfs diff=lfs merge=lfs -text
+# Audio files (should generally NOT be in Git - use external storage)
+extracted/**/*.mp3 filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.wav filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.flac filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.aac filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.ogg filter=lfs diff=lfs merge=lfs -text
+
+# Large data files ONLY in extracted/ directory (content processing output)
+# These are NOT configuration files
+extracted/**/*.sql filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.csv filter=lfs diff=lfs merge=lfs -text
+extracted/**/*.tsv filter=lfs diff=lfs merge=lfs -text
+
+# ============================================================================
+# EXPLICITLY EXCLUDED FROM LFS (regular Git storage)
+# ============================================================================
+# These MUST be in regular Git for the project to work
+
+# Configuration files - MUST be in regular Git
+*.json !filter !diff !merge text
+package.json !filter !diff !merge text
+package-lock.json !filter !diff !merge text
+tsconfig.json !filter !diff !merge text
+.lintstagedrc.json !filter !diff !merge text
+validation-report.json !filter !diff !merge text
+
+# Lock files - MUST be in regular Git
+yarn.lock !filter !diff !merge text
+pnpm-lock.yaml !filter !diff !merge text
+
+# Build configs - MUST be in regular Git
+*.config.js !filter !diff !merge text
+*.config.json !filter !diff !merge text
+turbo.json !filter !diff !merge text
+
+# TypeScript configs - MUST be in regular Git
+tsconfig.*.json !filter !diff !merge text
+
+# Build artifacts - should be in .gitignore, not LFS
+*.tsbuildinfo !filter !diff !merge text
+*.log !filter !diff !merge text
