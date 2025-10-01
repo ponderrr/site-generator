@@ -1,3 +1,77 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:571967c0d04eb66b245a84c4cb1a29a5f5d9cb11ab1b2b9de6291f4f7260b224
-size 2540
+{
+  "name": "site-generator",
+  "version": "0.1.0",
+  "description": "High-performance static site generator with parallel processing",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0",
+  "scripts": {
+    "dev": "node scripts/build.js && concurrently \"turbo dev\" \"node scripts/monitor.js\"",
+    "build": "node scripts/build.js",
+    "build:prod": "cross-env NODE_ENV=production node scripts/build.js",
+    "lint": "turbo lint",
+    "test": "vitest run --reporter=verbose",
+    "test:watch": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "type-check": "turbo type-check",
+    "clean": "turbo clean && rm -rf node_modules .cache",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "profile": "clinic heapprofiler -- node --max-old-space-size=14336",
+    "analyze": "clinic doctor -- node --max-old-space-size=14336",
+    "monitor": "node scripts/monitor.js",
+    "build:watch": "concurrently --max-processes 16 \"turbo dev\" \"node scripts/monitor.js\"",
+    "perf": "node scripts/performance.js",
+    "perf:clinic": "clinic heapprofiler --config config/clinic.config.json -- node scripts/build.js",
+    "perf:doctor": "clinic doctor --config config/clinic.config.json -- node scripts/build.js",
+    "benchmark": "node scripts/performance.js",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "lint-staged",
+    "commit-msg": "echo 'Commit message check passed'",
+    "pre-push": "pnpm test"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix --max-warnings=0",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ],
+    "*.{ts,tsx}": [
+      "vitest related --run"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "turbo": "^1.12.0",
+    "prettier": "^3.2.0",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "clinic": "^13.0.0",
+    "cross-env": "^7.0.3",
+    "concurrently": "^8.2.2",
+    "p-limit": "^5.0.0",
+    "vitest": "^1.2.2",
+    "@vitest/ui": "^1.2.2",
+    "jsdom": "^24.0.0",
+    "husky": "^9.0.10",
+    "lint-staged": "^15.2.2",
+    "simple-git-hooks": "^2.9.0"
+  },
+  "keywords": [
+    "static-site-generator",
+    "monorepo",
+    "typescript",
+    "turbo",
+    "performance"
+  ],
+  "author": "Site Generator Team",
+  "license": "MIT"
+}

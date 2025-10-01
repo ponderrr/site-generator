@@ -1,3 +1,47 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:22492f6ab5550be9ea78b05d7ef3cbe1bc0d3b93409f8e6e8b026fba910f408e
-size 1035
+{
+  "name": "site-generator-performance-profile",
+  "description": "Performance profiling for site generator",
+  "version": "0.1.0",
+
+  "heapprofiler": {
+    "dest": ".cache/profiles",
+    "format": "html",
+    "title": "Site Generator Heap Profile"
+  },
+
+  "doctor": {
+    "dest": ".cache/profiles",
+    "format": "html",
+    "title": "Site Generator Performance Analysis"
+  },
+
+  "bubbleprof": {
+    "dest": ".cache/profiles",
+    "format": "html",
+    "title": "Site Generator Bubble Profile"
+  },
+
+  "flame": {
+    "dest": ".cache/profiles",
+    "format": "html",
+    "title": "Site Generator Flame Graph"
+  },
+
+  "performance": {
+    "nodeOptions": [
+      "--max-old-space-size=14336",
+      "--optimize-for-size",
+      "--enable-source-maps",
+      "--experimental-specifier-resolution=node",
+      "--trace-warnings"
+    ],
+    "memory": {
+      "threshold": 0.85,
+      "warningLevel": "warn"
+    },
+    "cpu": {
+      "threshold": 0.9,
+      "warningLevel": "warn"
+    }
+  }
+}

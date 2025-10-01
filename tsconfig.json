@@ -1,3 +1,70 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:634639dbe12ad2043a3fa13ebc486c9657e1b69009cc7731da49745e923d1cef
-size 1854
+{
+  "compilerOptions": {
+    // Language and Environment
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    // Compilation
+    "allowJs": false,
+    "checkJs": false,
+    "strict": true,
+    "noEmit": true,
+    "emitDeclarationOnly": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    // Performance optimizations
+    "incremental": true,
+    "tsBuildInfoFile": ".cache/tsbuildinfo",
+    "skipLibCheck": true,
+    "preserveWatchOutput": true,
+    "assumeChangesOnlyAffectDirectDependencies": true,
+
+    // Module resolution
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+
+    // Output
+    "outDir": "dist",
+    "rootDir": ".",
+
+    // Advanced
+    "rootDirs": [
+      ".",
+      "packages/core/src",
+      "packages/extractor/src",
+      "packages/analyzer/src",
+      "packages/generator/src",
+      "packages/cli/src"
+    ],
+
+    // Experimental
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    // Type checking
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "files": [],
+  "references": [
+    { "path": "packages/core/tsconfig.json" },
+    { "path": "packages/extractor/tsconfig.json" },
+    { "path": "packages/analyzer/tsconfig.json" },
+    { "path": "packages/generator/tsconfig.json" },
+    { "path": "packages/cli/tsconfig.json" }
+  ]
+}
