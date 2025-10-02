@@ -91,7 +91,7 @@ export class ParallelProcessor {
 
     return {
       success: false,
-      error: lastError,
+      error: lastError || undefined,
       duration: 0,
       taskId: task.id
     };

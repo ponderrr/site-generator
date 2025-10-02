@@ -127,8 +127,39 @@ export class MarkdownConverter {
     this.turndownService.addRule('tables', {
       filter: 'table',
       replacement: (content, node) => {
-        // Let default table handling work
-        return content;
+        const element = node as Element;
+        const $ = cheerio.load(element.outerHTML);
+        const rows: string[][] = [];
+        
+        // Extract table data
+        $('tr').each((_, tr) => {
+          const row: string[] = [];
+          $(tr).find('th, td').each((_, cell) => {
+            row.push($(cell).text().trim());
+          });
+          if (row.length > 0) {
+            rows.push(row);
+          }
+        });
+        
+        if (rows.length === 0) return '';
+        
+        // Build markdown table
+        let markdown = '\n';
+        const colCount = Math.max(...rows.map(r => r.length));
+        
+        // Add header row
+        markdown += '| ' + rows[0].join(' | ') + ' |\n';
+        
+        // Add separator
+        markdown += '| ' + Array(colCount).fill('---').join(' | ') + ' |\n';
+        
+        // Add data rows
+        for (let i = 1; i < rows.length; i++) {
+          markdown += '| ' + rows[i].join(' | ') + ' |\n';
+        }
+        
+        return markdown + '\n';
       }
     });
 

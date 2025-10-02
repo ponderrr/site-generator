@@ -90,5 +90,3 @@ export default class BaseWorker {
   }
 }
 
-// Export for worker threads
-export default BaseWorker;

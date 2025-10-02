@@ -292,13 +292,13 @@ describe('Core Utilities', () => {
     });
 
     it('should handle measurePerformance utility', () => {
-      const { result, duration } = measurePerformance('utility-test', () => 'test');
+      const { result, duration } = measurePerformance(() => 'test', 'utility-test');
       expect(result).toBe('test');
       expect(duration).toBeGreaterThan(0);
     });
 
     it('should handle measureAsyncPerformance utility', async () => {
-      const { result, duration } = await measureAsyncPerformance('async-utility-test', async () => 'test');
+      const { result, duration } = await measureAsyncPerformance(async () => 'test', 'async-utility-test');
       expect(result).toBe('test');
       expect(duration).toBeGreaterThan(0);
     });
@@ -510,10 +510,10 @@ describe('Core Utilities', () => {
       const cache = new EnhancedLRUCache({ maxSize: 5 });
       const monitor = PerformanceMonitor.getInstance();
 
-      const { result, duration } = measurePerformance('cache-test', () => {
+      const { result, duration } = measurePerformance(() => {
         cache.set('test-key', 'test-value');
         return cache.get('test-key');
-      });
+      }, 'cache-test');
 
       expect(result).toBe('test-value');
       expect(duration).toBeGreaterThan(0);

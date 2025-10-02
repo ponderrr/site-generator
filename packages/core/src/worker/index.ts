@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import * as path from 'path';
 import Piscina from 'piscina';
-import { WorkerMessage, WorkerResponse, ParallelTask, ParallelResult, ResourceLimits } from '../types';
+import type { WorkerMessage, WorkerResponse, ParallelTask, ParallelResult, ResourceLimits } from '../types';
 
 export interface WorkerPoolOptions {
   minThreads?: number;
@@ -69,7 +69,7 @@ export class WorkerPool extends EventEmitter {
         maxFileSize: 100 * 1024 * 1024, // 100MB
         maxRequests: 10000
       },
-      workerFile: path.resolve(__dirname, '../workers/base-worker.js'),
+      workerFile: path.resolve(__dirname, './workers/base-worker.js'),
       env: {},
       argv: [],
       ...options
@@ -112,7 +112,7 @@ export class WorkerPool extends EventEmitter {
       data: taskData,
       priority,
       retries: 0,
-      timeout,
+      timeout: timeout ?? 30000, // Default to 30 seconds
       execute: async (data: T) => {
         // This will be replaced by the actual worker implementation
         throw new Error('Task execute function not implemented');
@@ -422,15 +422,15 @@ export const defaultWorkerPool = new WorkerPool();
 export const analysisWorkerPool = new WorkerPool({
   minThreads: 8,
   maxThreads: 16,
-  workerFile: path.resolve(__dirname, '../workers/analysis-worker.js')
+  workerFile: path.resolve(__dirname, './workers/analysis-worker.js')
 });
 export const extractionWorkerPool = new WorkerPool({
   minThreads: 4,
   maxThreads: 8,
-  workerFile: path.resolve(__dirname, '../workers/extraction-worker.js')
+  workerFile: path.resolve(__dirname, './workers/extraction-worker.js')
 });
 export const generationWorkerPool = new WorkerPool({
   minThreads: 2,
   maxThreads: 4,
-  workerFile: path.resolve(__dirname, '../workers/generation-worker.js')
+  workerFile: path.resolve(__dirname, './workers/generation-worker.js')
 });

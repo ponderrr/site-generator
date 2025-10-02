@@ -29,6 +29,26 @@ export class HtmlParser {
     const startTime = Date.now();
 
     try {
+      // Handle data: URLs (for testing)
+      if (url.startsWith('data:text/html,')) {
+        const html = decodeURIComponent(url.substring('data:text/html,'.length));
+        logger.info(`Parsed data URL`, {
+          url: 'data:text/html,...',
+          contentLength: html.length
+        });
+
+        return {
+          success: true,
+          html,
+          warnings: [],
+          metadata: {
+            contentType: 'text/html',
+            contentLength: html.length,
+            statusCode: 200
+          }
+        };
+      }
+
       logger.info(`Fetching HTML from ${url}`, { url });
 
       const response = await this.fetchWithTimeout(url, {
@@ -172,7 +192,7 @@ export class HtmlParser {
     }
 
     // Check for excessive nesting
-    const maxDepth = this.getElementDepth($('body'));
+    const maxDepth = this.getElementDepth($('body'), $);
     if (maxDepth > 50) {
       issues.push(`Excessive nesting depth: ${maxDepth}`);
     }
@@ -198,13 +218,13 @@ export class HtmlParser {
   /**
    * Get element nesting depth
    */
-  private getElementDepth(element: cheerio.Cheerio): number {
+  private getElementDepth(element: cheerio.Cheerio, $: cheerio.Root): number {
     if (element.length === 0) return 0;
 
     let maxDepth = 0;
     element.children().each((_, child) => {
-      const $child = cheerio(child);
-      const depth = this.getElementDepth($child) + 1;
+      const $child = $(child);
+      const depth = this.getElementDepth($child, $) + 1;
       maxDepth = Math.max(maxDepth, depth);
     });
 

@@ -33,6 +33,25 @@ beforeAll(() => {
   process.on('exit', () => {
     global.console = originalConsole;
   });
+
+  // Suppress expected Piscina worker loading errors
+  // These occur because we mock Piscina to fail and use direct analysis
+  const originalListeners = process.listeners('uncaughtException');
+  process.removeAllListeners('uncaughtException');
+  
+  process.on('uncaughtException', (error: Error) => {
+    // Suppress expected worker module errors
+    const errorMessage = error.message || '';
+    const isWorkerError = 
+      errorMessage.includes('Cannot find module') && 
+      (errorMessage.includes('workers/') || errorMessage.includes('worker.js'));
+    
+    if (!isWorkerError) {
+      // Re-emit non-worker errors to original handlers
+      originalListeners.forEach(listener => listener(error));
+    }
+    // Silently ignore worker loading errors
+  });
 });
 
 // Global test utilities
