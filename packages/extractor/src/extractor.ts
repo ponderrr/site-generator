@@ -96,12 +96,10 @@ export class ContentExtractor extends EventEmitter {
   private extractionQueue: Array<{ url: string; options?: ExtractionOptions }> = [];
   private activeExtractions: Set<string> = new Set();
   private abortController?: AbortController;
-  private defaultOptions: ExtractionOptions;
 
   constructor(options: ExtractionOptions = {}) {
     super();
 
-    this.defaultOptions = options;
     this.htmlParser = new HtmlParser(options);
     this.markdownConverter = new MarkdownConverter(options);
     this.mediaExtractor = new MediaExtractor(options);
@@ -130,9 +128,6 @@ export class ContentExtractor extends EventEmitter {
   async extract(url: string, options: ExtractionOptions = {}): Promise<ExtractionResult> {
     const startTime = Date.now();
     const normalizedUrl = this.urlNormalizer.normalize(url);
-
-    // Merge default options with method options (method options take precedence)
-    const mergedOptions = { ...this.defaultOptions, ...options };
 
     if (this.activeExtractions.has(normalizedUrl)) {
       logger.warn(`Extraction already in progress for ${normalizedUrl}`);
@@ -169,12 +164,7 @@ export class ContentExtractor extends EventEmitter {
       const links = this.mediaExtractor.extractLinks(htmlContent.html);
 
       // Filter content
-      let filteredMarkdown = this.contentFilter.filter(markdown);
-
-      // Apply max content length after filtering
-      if (mergedOptions.maxContentLength && filteredMarkdown.length > mergedOptions.maxContentLength) {
-        filteredMarkdown = filteredMarkdown.substring(0, mergedOptions.maxContentLength);
-      }
+      const filteredMarkdown = this.contentFilter.filter(markdown);
 
       // Extract structured data
       const tables = this.extractTables(htmlContent.html);
@@ -233,15 +223,9 @@ export class ContentExtractor extends EventEmitter {
       };
 
       this.emit('extraction-error', error instanceof Error ? error : new Error(errorMessage), normalizedUrl);
-      
-      // Log error safely without throwing
-      try {
-        logger.error(`Failed to extract content from ${normalizedUrl}`, error instanceof Error ? error : new Error(errorMessage), {
-          url: normalizedUrl
-        });
-      } catch {
-        // Ignore logger errors
-      }
+      logger.error(`Failed to extract content from ${normalizedUrl}`, error instanceof Error ? error : new Error(errorMessage), {
+        url: normalizedUrl
+      });
 
       return result;
     } finally {
@@ -372,14 +356,8 @@ export class ContentExtractor extends EventEmitter {
       }
     });
 
-    // Extract title and clean it (handle malformed HTML)
-    // Prefer h1 in article/main over title tag for better content extraction
-    let title = $('article h1, main h1').first().text().trim() || 
-                $('h1').first().text().trim() ||
-                $('title').text().trim();
-    // Remove any HTML tags that leaked through due to malformed HTML
-    title = title.replace(/<[^>]*>/g, '').trim();
-    metadata.title = title;
+    // Extract title
+    metadata.title = $('title').text().trim();
 
     // Extract description
     if (!metadata.description) {

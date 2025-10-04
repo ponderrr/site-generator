@@ -94,9 +94,9 @@ export class ErrorHandler {
       return (error as ProcessingError).retryable;
     }
 
-    return config.retryableErrors?.some(errorType =>
+    return config.retryableErrors.some(errorType =>
       error.message.includes(errorType) || error.name.includes(errorType)
-    ) ?? false;
+    );
   }
 
   /**

@@ -53,7 +53,6 @@ export class ContentMetricsAnalyzer implements Analyzer {
         density,
         structure,
       }),
-      keywordsArray: keywords.keywordsArray,
     };
   }
 
@@ -351,8 +350,9 @@ export class ContentMetricsAnalyzer implements Analyzer {
     // More comprehensive word filtering for better keyword extraction
     const words = text.toLowerCase()
       .split(/\s+/)
-      .map(w => w.replace(/[^\w\u4e00-\u9fff\$\+\-\*\/\=\^\(\)]/g, '')) // Clean first, keep mathematical symbols
-      .filter(w => w.length > 1 && /[a-zA-Z0-9\u4e00-\u9fff]/.test(w) && !this.isStopWord(w));
+      .filter(w => w.length > 1 && /[a-zA-Z0-9\u4e00-\u9fff\$\+\-\*\/\=\^\(\)]/.test(w) && !this.isStopWord(w))
+      .map(w => w.replace(/[^\w\u4e00-\u9fff\$\+\-\*\/\=\^\(\)]/g, '')) // Keep mathematical symbols
+      .filter(w => w.length > 0);
 
     // Calculate word frequencies
     const frequencies = new Map<string, number>();
@@ -377,23 +377,16 @@ export class ContentMetricsAnalyzer implements Analyzer {
     // Create topic clusters
     const topicClusters = this.createTopicClusters(keywordArray);
 
-    // Build keywordsArray with proper fallback
-    let keywordsArray: string[] = [];
-    if (mainKeywords.length > 0) {
-      keywordsArray = mainKeywords.map(k => k.word);
-    } else if (frequencies.size > 0) {
-      keywordsArray = Array.from(frequencies.keys()).slice(0, 5);
-    } else {
-      keywordsArray = [];
-    }
-
     return {
       mainKeywords,
       keywordDensity: frequencies,
       topicClusters,
       readabilityKeywords: this.extractReadabilityKeywords(text),
       seoKeywords: this.extractSEOKeywords(text),
-      keywordsArray, // Simple array of keyword strings for compatibility
+      keywordsArray: mainKeywords.length > 0 ? mainKeywords.map(k => k.word) :
+                     Array.from(frequencies.keys()).slice(0, 5).length > 0 ?
+                     Array.from(frequencies.keys()).slice(0, 5) :
+                     ['content', 'text', 'page'], // Simple array of keyword strings for compatibility
     };
   }
 

@@ -1,5 +1,5 @@
 import { LRUCache } from 'lru-cache';
-import type { CacheEntry, CacheStats, DeepPartial } from '../types';
+import { CacheEntry, CacheStats, DeepPartial } from '../types';
 
 // Re-export types for convenience
 export type { CacheEntry, CacheStats } from '../types';
@@ -217,10 +217,7 @@ export class EnhancedLRUCache<T = any> {
    */
   setBatch(entries: Array<{ key: string; value: T; ttl?: number; size?: number }>): void {
     for (const entry of entries) {
-      const options: { ttl?: number; size?: number } = {};
-      if (entry.ttl !== undefined) options.ttl = entry.ttl;
-      if (entry.size !== undefined) options.size = entry.size;
-      this.set(entry.key, entry.value, options);
+      this.set(entry.key, entry.value, { ttl: entry.ttl, size: entry.size });
     }
   }
 

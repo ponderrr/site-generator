@@ -7,11 +7,6 @@ export class UrlNormalizer {
    */
   normalize(url: string): string {
     try {
-      // Don't normalize data URLs
-      if (url.startsWith('data:')) {
-        return url;
-      }
-
       // Add protocol if missing
       if (!url.match(/^https?:\/\//i)) {
         url = 'https://' + url;
@@ -19,9 +14,8 @@ export class UrlNormalizer {
 
       const parsedUrl = new URL(url);
 
-      // Normalize hostname and pathname
+      // Normalize hostname
       parsedUrl.hostname = parsedUrl.hostname.toLowerCase();
-      parsedUrl.pathname = parsedUrl.pathname.toLowerCase();
 
       // Remove default ports
       if ((parsedUrl.protocol === 'https:' && parsedUrl.port === '443') ||

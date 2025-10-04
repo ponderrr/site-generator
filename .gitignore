@@ -8,9 +8,6 @@ dist/
 build/
 out/
 
-# Generated worker files
-packages/*/workers/
-
 # Environment variables
 .env
 .env.local
@@ -133,7 +130,3 @@ Thumbs.db
 extracted/
 temp/
 tmp/
-
-# Test output files
-test-*.txt
-final-test.txt

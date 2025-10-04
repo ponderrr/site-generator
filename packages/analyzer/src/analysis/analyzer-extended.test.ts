@@ -14,23 +14,29 @@ vi.mock('path', () => ({
   basename: vi.fn((path) => path.split('/').pop() || ''),
 }));
 
-// Mock Piscina - make run() fail so it falls back to direct analysis
-// This prevents Piscina from trying to load actual worker files
-vi.mock('piscina', () => {
-  const MockPiscina = vi.fn().mockImplementation(() => ({
-    run: vi.fn().mockRejectedValue(new Error('Worker not available - using direct analysis')),
+// Mock Piscina
+vi.mock('piscina', () => ({
+  default: vi.fn().mockImplementation(() => ({
+    run: vi.fn().mockResolvedValue({
+      success: true,
+      result: {
+        url: 'https://example.com/test',
+        pageType: 'home',
+        confidence: 0.8,
+        contentMetrics: {},
+        sections: [],
+        analysisTime: 100,
+        metadata: {}
+      }
+    }),
     destroy: vi.fn().mockResolvedValue(undefined),
-    threads: [],
+    threads: [{ id: 1 }, { id: 2 }],
     queueSize: 0,
     options: {
       concurrentTasksPerWorker: 1,
     },
-  }));
-  
-  return {
-    default: MockPiscina,
-  };
-});
+  })),
+}));
 
 // Mock crypto
 vi.mock('crypto', () => ({
@@ -505,9 +511,9 @@ This content has:
       const sections = await sectionDetector.analyze(page);
 
       expect(sections.length).toBeGreaterThan(3); // More lenient section count
-      // Content section should be detected for mixed formatting
+      expect(sections.some(s => s.type === 'hero')).toBe(true);
       expect(sections.some(s => s.type === 'content')).toBe(true);
-      expect(sections.some(s => s.confidence > 0.5)).toBe(true);
+      expect(sections.some(s => s.confidence > 0.8)).toBe(true);
     });
 
     it('should handle content with tables and complex data', async () => {
@@ -714,7 +720,7 @@ This content intentionally has inconsistent formatting to test the analyzer's ab
 
       expect(results).toHaveLength(25);
       expect(results.every(r => r.analysisTime > 0)).toBe(true);
-      expect(results.every(r => r.contentMetrics && typeof r.contentMetrics.quality === 'number')).toBe(true);
+      expect(results.every(r => r.contentMetrics && r.contentMetrics.quality !== undefined)).toBe(true);
     });
 
     it('should handle content with varying quality levels', async () => {
@@ -795,7 +801,7 @@ Basic conclusion.
 
       expect(highQuality?.contentMetrics.quality).toBeGreaterThan(0.3); // More lenient quality expectations
       expect(lowQuality?.contentMetrics.quality).toBeLessThan(0.8);
-      expect(mediumQuality?.contentMetrics.quality).toBeGreaterThanOrEqual(0.49); // Account for floating point precision
+      expect(mediumQuality?.contentMetrics.quality).toBeGreaterThanOrEqual(0.5);
       expect(mediumQuality?.contentMetrics.quality).toBeLessThanOrEqual(0.7);
     });
 
@@ -854,9 +860,9 @@ Creating and using services in Angular applications.
 
       // Check cross-references were detected
       results.forEach(result => {
-        expect(result.crossReferences).toBeDefined();
-        expect(Array.isArray(result.crossReferences)).toBe(true);
-        // At least some pages should have cross-references after cross-page analysis
+        expect(result.metadata.crossReferences).toBeGreaterThanOrEqual(2);
+        expect(result.metadata.relatedTopics).toBeDefined();
+        expect(result.metadata.relatedTopics.length).toBeGreaterThan(0);
       });
 
       // Verify different frameworks are distinguished
@@ -864,14 +870,9 @@ Creating and using services in Angular applications.
       const vuePage = results.find(r => r.url === 'https://example.com/vue-guide');
       const angularPage = results.find(r => r.url === 'https://example.com/angular-reference');
 
-      // Pages should be classified (might be blog-post, documentation, api-reference, or other based on content)
-      expect(reactPage?.pageType).toBeDefined();
-      expect(vuePage?.pageType).toBeDefined();
-      expect(angularPage?.pageType).toBeDefined();
-      // More lenient: could be documentation, blog-post, api-reference, or other depending on classifier
-      expect(['documentation', 'blog-post', 'api-reference', 'other']).toContain(reactPage?.pageType);
-      expect(['documentation', 'blog-post', 'api-reference', 'other']).toContain(vuePage?.pageType);
-      expect(['documentation', 'blog-post', 'api-reference', 'other']).toContain(angularPage?.pageType);
+      expect(reactPage?.pageType).toBe('documentation');
+      expect(vuePage?.pageType).toBe('documentation');
+      expect(angularPage?.pageType).toBe('documentation');
     });
 
     it('should handle performance benchmarking', async () => {
@@ -909,8 +910,7 @@ Additional content for comprehensive testing.
         expect(result.analysisTime).toBeGreaterThan(0);
         expect(result.analysisTime).toBeLessThan(5000); // Each should be under 5 seconds
         expect(result.contentMetrics).toBeDefined();
-        // Sections array should exist (might be empty if confidence threshold not met)
-        expect(Array.isArray(result.sections)).toBe(true);
+        expect(result.sections.length).toBeGreaterThan(0);
       });
     });
   });

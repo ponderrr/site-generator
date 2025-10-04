@@ -42,10 +42,8 @@ export class AnalysisOrchestrator {
     }
   ) {
     // Initialize worker pool with CPU-optimized settings
-    // Use .js extension for compiled worker, .ts for development/testing
-    const workerExt = __filename.endsWith('.ts') ? '.ts' : '.js';
     this.workerPool = new Piscina({
-      filename: path.resolve(__dirname, `../workers/analysis-worker${workerExt}`),
+      filename: path.resolve(__dirname, '../workers/analysis-worker.ts'),
       minThreads: options.minThreads,
       maxThreads: options.maxThreads,
       idleTimeout: options.idleTimeout,
@@ -157,29 +155,22 @@ export class AnalysisOrchestrator {
     const taskId = `analysis-${++this.taskCounter}`;
 
     try {
-      // Try to use worker pool first
+      // Perform analysis in worker
       const result = await this.workerPool.run({
-        task: {
-          type: 'analyze',
-          page,
-          analyzers: ['all'], // Use all available analyzers
-          taskId,
-        },
-        options: {
-          confidenceThreshold: this.analysisOptions.confidenceThreshold,
-          enableCrossAnalysis: this.analysisOptions.enableCrossAnalysis,
-          enableEmbeddings: this.analysisOptions.enableEmbeddings,
-        }
-      });
+        type: 'analyze',
+        page,
+        analyzers: ['all'], // Use all available analyzers
+        taskId,
+      } as AnalysisWorkerTask);
 
       if (!result.success) {
         throw new Error(result.error || 'Analysis failed');
       }
 
       const analysisResult: AnalysisResult = {
-        ...result.result!,
-        crossReferences: result.result!.crossReferences || [],
-        relatedPages: result.result!.relatedPages || [],
+        ...result.result,
+        crossReferences: result.result.crossReferences || [],
+        relatedPages: result.result.relatedPages || [],
       };
 
       // Cache result
@@ -187,49 +178,9 @@ export class AnalysisOrchestrator {
 
       return analysisResult;
     } catch (error) {
-      // Fallback to direct analysis if worker fails (e.g., during tests)
-      console.warn(`Worker failed for ${page.url}, using direct analysis:`, error);
-      const directResult = await this.analyzeDirectly(page);
-      
-      // Cache the direct analysis result too
-      this.resultCache.set(cacheKey, directResult);
-      
-      return directResult;
+      console.error(`Error analyzing page ${page.url}:`, error);
+      throw error;
     }
-  }
-
-  private async analyzeDirectly(page: ExtractedPage): Promise<AnalysisResult> {
-    // Import analyzers dynamically to avoid circular dependencies
-    const { ContentMetricsAnalyzer } = await import('./ContentMetricsAnalyzer');
-    const { PageTypeClassifier } = await import('./PageTypeClassifier');
-    const { SectionDetector } = await import('./SectionDetector');
-
-    const startTime = Date.now();
-    const metricsAnalyzer = new ContentMetricsAnalyzer();
-    const pageClassifier = new PageTypeClassifier();
-    const sectionDetector = new SectionDetector();
-
-    const [contentMetrics, classification, sections] = await Promise.all([
-      metricsAnalyzer.analyze(page),
-      pageClassifier.analyze(page),
-      sectionDetector.analyze(page)
-    ]);
-
-    return {
-      url: page.url,
-      pageType: classification.pageType,
-      confidence: classification.confidence,
-      contentMetrics,
-      sections,
-      analysisTime: Date.now() - startTime,
-      metadata: {
-        analyzed: true,
-        crossReferences: 0,
-        relatedTopics: []
-      },
-      crossReferences: [],
-      relatedPages: []
-    };
   }
 
   private async performCrossPageAnalysis(results: AnalysisResult[]): Promise<void> {

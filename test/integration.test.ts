@@ -16,23 +16,29 @@ vi.mock('path', () => ({
   basename: vi.fn((path) => path.split('/').pop() || ''),
 }));
 
-// Mock Piscina - make run() fail so it falls back to direct analysis
-// This prevents Piscina from trying to load actual worker files
-vi.mock('piscina', () => {
-  const MockPiscina = vi.fn().mockImplementation(() => ({
-    run: vi.fn().mockRejectedValue(new Error('Worker not available - using direct analysis')),
+// Mock Piscina
+vi.mock('piscina', () => ({
+  default: vi.fn().mockImplementation(() => ({
+    run: vi.fn().mockResolvedValue({
+      success: true,
+      result: {
+        url: 'https://example.com/test',
+        pageType: 'home',
+        confidence: 0.8,
+        contentMetrics: {},
+        sections: [],
+        analysisTime: 100,
+        metadata: {}
+      }
+    }),
     destroy: vi.fn().mockResolvedValue(undefined),
-    threads: [],
+    threads: [{ id: 1 }, { id: 2 }],
     queueSize: 0,
     options: {
       concurrentTasksPerWorker: 1,
     },
-  }));
-  
-  return {
-    default: MockPiscina,
-  };
-});
+  })),
+}));
 
 // Mock crypto
 vi.mock('crypto', () => ({
@@ -68,10 +74,6 @@ describe('Full System Integration Tests', () => {
   });
 
   describe('End-to-End Content Processing', () => {
-    beforeEach(() => {
-      // Clear cache before each test to avoid interference
-      orchestrator.clearCache();
-    });
     it('should process HTML content through the complete pipeline', async () => {
       const htmlContent = `
         <!DOCTYPE html>
@@ -159,14 +161,12 @@ describe('Full System Integration Tests', () => {
       const results = await orchestrator.analyzeContent(pages);
 
       expect(results).toHaveLength(3);
-      // More lenient: at least some should be classified correctly
-      const classified = results.filter(r => r.pageType !== 'other');
-      expect(classified.length).toBeGreaterThan(0);
-      expect(results.every(r => r.confidence >= 0)).toBe(true);
+      expect(results.every(r => r.pageType !== 'other')).toBe(true);
+      expect(results.every(r => r.confidence > 0.3)).toBe(true);
 
-      // Check cross-references were detected  - cross-page analysis adds these
+      // Check cross-references were detected
       const homePage = results.find(r => r.url === 'https://example.com/');
-      expect(homePage?.crossReferences || []).toBeDefined();
+      expect(homePage?.metadata.crossReferences).toBeGreaterThan(0);
     });
 
     it('should process content with complex markdown structures', async () => {
@@ -220,15 +220,12 @@ Final notes with a horizontal rule.
       expect(results).toHaveLength(1);
       expect(results[0].contentMetrics.readability).toBeDefined();
       expect(results[0].contentMetrics.keywords).toBeDefined();
-      expect(results[0].sections).toBeDefined();
+      expect(results[0].sections.length).toBeGreaterThan(0);
 
-      // Verify sections were detected (might be empty if confidence threshold not met)
+      // Verify sections were detected
       const sections = results[0].sections;
-      expect(Array.isArray(sections)).toBe(true);
-      // More lenient: sections might be filtered by confidence threshold
-      if (sections.length > 0) {
-        expect(sections.some(s => s.type === 'content' || s.type === 'hero' || s.type === 'navigation')).toBe(true);
-      }
+      expect(sections.some(s => s.type === 'content')).toBe(true);
+      expect(sections.some(s => s.confidence > 0.5)).toBe(true);
     });
 
     it('should handle performance metrics collection', async () => {
@@ -246,11 +243,12 @@ Final notes with a horizontal rule.
 
       expect(results).toHaveLength(5);
 
-      // Check metrics were collected - metrics collection is optional/configurable
+      // Check metrics were collected
       const metrics = defaultMetricsCollector.getMetricsSummary();
-      // Metrics collection might not be enabled in test environment
-      expect(metrics).toBeDefined();
-      expect(Array.isArray(metrics)).toBe(true);
+      expect(metrics.length).toBeGreaterThan(0);
+
+      const analysisMetrics = metrics.filter(m => m.name.includes('analysis'));
+      expect(analysisMetrics.length).toBeGreaterThan(0);
     });
 
     it('should handle caching across multiple runs', async () => {
@@ -269,13 +267,10 @@ Final notes with a horizontal rule.
       const result2 = await orchestrator.analyzeContent([page]);
       expect(result2).toHaveLength(1);
 
-      // Results should be cached and consistent
+      // Results should be identical
       expect(result1[0].url).toBe(result2[0].url);
-      // If caching works, key fields should be identical
       expect(result1[0].pageType).toBe(result2[0].pageType);
       expect(result1[0].confidence).toBe(result2[0].confidence);
-      // Content metrics should also be cached
-      expect(result1[0].contentMetrics.quality).toBe(result2[0].contentMetrics.quality);
     });
 
     it('should handle error recovery and resilience', async () => {
@@ -333,10 +328,9 @@ Final notes with a horizontal rule.
       // Verify original data is preserved
       expect(result.url).toBe(originalContent.url);
       expect(result.contentMetrics).toBeDefined();
-      expect(result.sections).toBeDefined();
-      expect(Array.isArray(result.sections)).toBe(true);
-      expect(result.analysisTime).toBeGreaterThanOrEqual(0);
-      expect(result.confidence).toBeGreaterThanOrEqual(0);
+      expect(result.sections.length).toBeGreaterThan(0);
+      expect(result.analysisTime).toBeGreaterThan(0);
+      expect(result.confidence).toBeGreaterThan(0);
 
       // Verify metadata integrity
       expect(result.metadata).toBeDefined();
@@ -361,8 +355,8 @@ Final notes with a horizontal rule.
       expect(endTime - startTime).toBeLessThan(10000); // Should complete within 10 seconds
 
       // All pages should be processed
-      const successful = results.filter(r => r.confidence >= 0);
-      expect(successful.length).toBeGreaterThanOrEqual(results.length); // All should have some result
+      const successful = results.filter(r => r.confidence > 0.3);
+      expect(successful.length).toBeGreaterThan(5); // At least half should succeed
     });
 
     it('should provide comprehensive analysis insights', async () => {
@@ -390,18 +384,17 @@ Final notes with a horizontal rule.
         expect(result.contentMetrics.readability).toBeDefined();
         expect(result.contentMetrics.sentiment).toBeDefined();
         expect(result.contentMetrics.keywords).toBeDefined();
-        expect(result.contentMetrics.quality).toBeGreaterThanOrEqual(0);
-        expect(result.sections).toBeDefined();
-        expect(Array.isArray(result.sections)).toBe(true);
-        expect(result.analysisTime).toBeGreaterThanOrEqual(0);
+        expect(result.contentMetrics.quality).toBeGreaterThan(0);
+        expect(result.sections.length).toBeGreaterThan(0);
+        expect(result.analysisTime).toBeGreaterThan(0);
       });
 
       // Verify different content types are handled appropriately
       const blogPage = results.find(r => r.url === 'https://example.com/blog');
       const docsPage = results.find(r => r.url === 'https://example.com/docs');
 
-      expect(blogPage?.contentMetrics.readability.readingTime).toBeGreaterThanOrEqual(0);
-      expect(docsPage?.contentMetrics.readability.complexWordRatio).toBeGreaterThanOrEqual(0);
+      expect(blogPage?.contentMetrics.readability.readingTime).toBeGreaterThan(0);
+      expect(docsPage?.contentMetrics.readability.complexWordRatio).toBeGreaterThan(0);
     });
   });
 
@@ -435,9 +428,9 @@ Final notes with a horizontal rule.
       const results = await orchestrator.analyzeContent(pages);
       expect(results).toHaveLength(50);
 
-      // Verify all pages were processed - more lenient success rate
-      const successful = results.filter(r => r.confidence >= 0);
-      expect(successful.length).toBeGreaterThan(25); // At least 50% success rate
+      // Verify all pages were processed
+      const successful = results.filter(r => r.pageType !== 'other');
+      expect(successful.length).toBeGreaterThan(40); // At least 80% success rate
     });
   });
 });

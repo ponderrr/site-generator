@@ -120,22 +120,18 @@ export class PerformanceMonitor {
    */
   async measureAsyncPerformance<T>(
     operation: () => Promise<T>
-  ): Promise<{ result: T; duration: number; success: boolean; memoryUsage: NodeJS.MemoryUsage }> {
+  ): Promise<{ result: T; duration: number; success: boolean }> {
     const startTime = performance.now();
-    const startMemory = process.memoryUsage();
     try {
       const result = await operation();
       const duration = performance.now() - startTime;
-      const memoryUsage = process.memoryUsage();
 
       this.recordMetric('async_operation_duration', duration);
-      this.recordMetric('async_operation_memory', memoryUsage.heapUsed - startMemory.heapUsed);
-      return { result, duration, success: true, memoryUsage };
+      return { result, duration, success: true };
     } catch (error) {
       const duration = performance.now() - startTime;
-      const memoryUsage = process.memoryUsage();
       this.recordMetric('async_operation_duration', duration);
-      return { result: null as T, duration, success: false, memoryUsage };
+      return { result: null as T, duration, success: false };
     }
   }
 

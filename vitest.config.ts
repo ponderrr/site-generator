@@ -81,19 +81,7 @@ export default defineConfig({
     retry: process.env.CI ? 2 : 0,
 
     // Setup files
-    setupFiles: ['./test/setup.ts'],
-
-    // Suppress expected worker module errors from Piscina
-    onConsoleLog(log: string) {
-      // Suppress Piscina worker loading errors as we're using mocked workers
-      if (log.includes('Cannot find module') && log.includes('workers/')) {
-        return false;
-      }
-      if (log.includes('ERR_MODULE_NOT_FOUND')) {
-        return false;
-      }
-      return true;
-    },
+    setupFiles: ['./test/setup.ts']
   },
 
   // Environment variables
