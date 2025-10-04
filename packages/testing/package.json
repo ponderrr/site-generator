@@ -1,7 +1,7 @@
 {
-  "name": "@site-generator/extractor",
+  "name": "@site-generator/testing",
   "version": "0.1.0",
-  "description": "Content extraction logic for the site generator",
+  "description": "Testing utilities and helpers for the site generator",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "sideEffects": false,
@@ -12,13 +12,10 @@
   },
   "dependencies": {
     "@site-generator/core": "workspace:*",
-    "playwright": "^1.41.1",
-    "turndown": "^7.1.2",
-    "cheerio": "^1.0.0-rc.12",
-    "robots-parser": "^3.0.1",
-    "p-throttle": "^6.1.0",
-    "sharp": "^0.33.2",
-    "stream-chain": "^2.2.5"
+    "vitest": "^2.0.0",
+    "@vitest/ui": "^2.0.0",
+    "happy-dom": "^15.0.0",
+    "jsdom": "^25.0.0"
   },
   "devDependencies": {
     "tsup": "^8.0.0",

@@ -30,15 +30,13 @@
     "verbatimModuleSyntax": false,
 
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
-
-    // Temporarily disabled strict options for build
-    // "exactOptionalPropertyTypes": true,
-    // "noFallthroughCasesInSwitch": true,
-    // "noImplicitOverride": true,
-    // "noImplicitReturns": true,
-    // "noPropertyAccessFromIndexSignature": true,
-    // "noUncheckedIndexedAccess": true
+    "emitDecoratorMetadata": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true
   },
   "include": ["src/**/*", "src/workers/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]

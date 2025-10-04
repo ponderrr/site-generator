@@ -4,6 +4,7 @@
   "description": "Shared utilities and types for the site generator",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "sideEffects": false,
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts && node copy-workers.js",
     "dev": "tsup src/index.ts --format esm --dts --watch",

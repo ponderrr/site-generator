@@ -4,6 +4,7 @@
   "description": "Content analysis engine for the site generator",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "sideEffects": false,
   "scripts": {
     "build": "tsup src/index.ts src/workers/analysis-worker.ts --format esm --dts && node copy-workers.js",
     "dev": "tsup src/index.ts --format esm --dts --watch",
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "tsup": "^8.0.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
   }
 }

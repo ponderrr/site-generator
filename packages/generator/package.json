@@ -4,6 +4,7 @@
   "description": "Site generation logic for the site generator",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "sideEffects": false,
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts",
     "dev": "tsup src/index.ts --format esm --dts --watch",
@@ -26,6 +27,7 @@
     "tsup": "^8.0.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.48",
-    "@types/react-dom": "^18.2.18"
+    "@types/react-dom": "^18.2.18",
+    "typescript": "^5.4.0"
   }
 }

@@ -1,6 +1,5 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "ui": "tui",
   "pipeline": {
     "build": {
       "dependsOn": ["^build"],
@@ -9,8 +8,7 @@
     },
     "test": {
       "dependsOn": ["build"],
-      "cache": true,
-      "parallel": true
+      "cache": true
     },
     "lint": {
       "dependsOn": ["^build"],
@@ -29,9 +27,5 @@
     }
   },
   "globalDependencies": ["tsconfig.json", "package.json"],
-  "globalEnv": ["NODE_ENV", "CI"],
-  "experimentalSpaces": {
-    "enabled": true,
-    "parallel": 16
-  }
+  "globalEnv": ["NODE_ENV", "CI"]
 }
