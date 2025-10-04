@@ -3,8 +3,9 @@
  */
 
 import { EventEmitter } from 'events';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from 'fs';
+import { join, dirname, extname, basename } from 'path';
+import { createHash } from 'crypto';
 
 /**
  * Site generation configuration interface
@@ -14,10 +15,13 @@ export interface SiteGeneratorConfig {
   outputDir: string;
   theme?: string;
   optimizeImages?: boolean;
+  optimizeCSS?: boolean;
+  optimizeJS?: boolean;
   generateSitemap?: boolean;
   includeMetadata?: boolean;
   parallel?: number;
   cache?: boolean;
+  assetOutputDir?: string;
 }
 
 /**
@@ -47,20 +51,31 @@ export interface GenerationResult {
 /**
  * Main Site Generator class
  */
+export interface AssetInfo {
+  name: string;
+  path: string;
+  type: 'image' | 'css' | 'js' | 'other';
+  size: number;
+  originalPath: string;
+}
+
 export class SiteGenerator extends EventEmitter {
   private config: SiteGeneratorConfig;
   private pages: PageData[] = [];
-  private assets: string[] = [];
+  private assets: AssetInfo[] = [];
 
   constructor(config: SiteGeneratorConfig) {
     super();
     this.config = {
       theme: 'default',
       optimizeImages: true,
+      optimizeCSS: true,
+      optimizeJS: true,
       generateSitemap: true,
       includeMetadata: true,
       parallel: 4,
       cache: true,
+      assetOutputDir: 'assets',
       ...config
     };
   }
@@ -89,7 +104,7 @@ export class SiteGenerator extends EventEmitter {
       await this.generatePages(result);
 
       // Process assets
-      if (this.config.optimizeImages) {
+      if (this.config.optimizeImages || this.config.optimizeCSS || this.config.optimizeJS) {
         this.emit('progress', { step: 'assets', progress: 0 });
         await this.processAssets(result);
       }
@@ -104,6 +119,12 @@ export class SiteGenerator extends EventEmitter {
       if (this.config.includeMetadata) {
         this.emit('progress', { step: 'metadata', progress: 0 });
         await this.generateMetadata(result);
+      }
+
+      // Generate asset manifest
+      if (this.assets.length > 0) {
+        this.emit('progress', { step: 'manifest', progress: 0 });
+        await this.generateAssetManifest();
       }
 
       this.emit('complete', result);
@@ -302,11 +323,43 @@ export class SiteGenerator extends EventEmitter {
    * Process and optimize assets
    */
   private async processAssets(result: GenerationResult): Promise<void> {
-    // TODO: Implement asset processing
-    // This would include image optimization, CSS minification, etc.
-    result.assetsProcessed = 0;
-    
-    this.emit('progress', { step: 'assets', progress: 1 });
+    try {
+      this.emit('progress', { step: 'assets', progress: 0, message: 'Discovering assets...' });
+      
+      const assets = await this.discoverAssets();
+      let processedCount = 0;
+      
+      for (let i = 0; i < assets.length; i++) {
+        const asset = assets[i];
+        if (!asset) continue;
+        
+        try {
+          await this.optimizeAsset(asset);
+          processedCount++;
+          
+          this.emit('progress', { 
+            step: 'assets', 
+            progress: (i + 1) / assets.length,
+            current: asset.name,
+            message: `Optimized ${processedCount}/${assets.length} assets`
+          });
+          
+        } catch (error) {
+          const errorMessage = `Failed to optimize asset "${asset.name}": ${error}`;
+          result.warnings.push(errorMessage);
+          this.emit('warning', { message: errorMessage });
+        }
+      }
+      
+      result.assetsProcessed = processedCount;
+      this.emit('progress', { step: 'assets', progress: 1, message: `Processed ${processedCount} assets` });
+      
+    } catch (error) {
+      const errorMessage = `Asset processing failed: ${error}`;
+      result.errors.push(errorMessage);
+      this.emit('error', { error: errorMessage });
+      throw new Error(errorMessage);
+    }
   }
 
   /**
@@ -403,6 +456,208 @@ ${urls}
    */
   getConfig(): SiteGeneratorConfig {
     return { ...this.config };
+  }
+
+  /**
+   * Discover assets in the input directory
+   */
+  private async discoverAssets(): Promise<AssetInfo[]> {
+    const assets: AssetInfo[] = [];
+    const assetDir = join(this.config.inputDir, this.config.assetOutputDir || 'assets');
+    
+    if (!existsSync(assetDir)) {
+      return assets;
+    }
+
+    const discoverInDirectory = (dir: string): void => {
+      const items = readdirSync(dir);
+      
+      for (const item of items) {
+        const itemPath = join(dir, item);
+        const stats = statSync(itemPath);
+        
+        if (stats.isDirectory()) {
+          discoverInDirectory(itemPath);
+        } else if (stats.isFile()) {
+          const ext = extname(item).toLowerCase();
+          let type: AssetInfo['type'] = 'other';
+          
+          if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'].includes(ext)) {
+            type = 'image';
+          } else if (ext === '.css') {
+            type = 'css';
+          } else if (ext === '.js') {
+            type = 'js';
+          }
+          
+          assets.push({
+            name: item,
+            path: itemPath,
+            type,
+            size: stats.size,
+            originalPath: itemPath
+          });
+        }
+      }
+    };
+
+    discoverInDirectory(assetDir);
+    return assets;
+  }
+
+  /**
+   * Optimize a single asset
+   */
+  private async optimizeAsset(asset: AssetInfo): Promise<void> {
+    const outputDir = join(this.config.outputDir, this.config.assetOutputDir || 'assets');
+    const outputPath = join(outputDir, asset.name);
+    
+    // Ensure output directory exists
+    const outputDirPath = dirname(outputPath);
+    if (!existsSync(outputDirPath)) {
+      mkdirSync(outputDirPath, { recursive: true });
+    }
+
+    switch (asset.type) {
+      case 'image':
+        if (this.config.optimizeImages) {
+          await this.optimizeImage(asset, outputPath);
+        } else {
+          await this.copyAsset(asset, outputPath);
+        }
+        break;
+        
+      case 'css':
+        if (this.config.optimizeCSS) {
+          await this.optimizeCSS(asset, outputPath);
+        } else {
+          await this.copyAsset(asset, outputPath);
+        }
+        break;
+        
+      case 'js':
+        if (this.config.optimizeJS) {
+          await this.optimizeJS(asset, outputPath);
+        } else {
+          await this.copyAsset(asset, outputPath);
+        }
+        break;
+        
+      default:
+        await this.copyAsset(asset, outputPath);
+        break;
+    }
+  }
+
+  /**
+   * Copy asset without optimization
+   */
+  private async copyAsset(asset: AssetInfo, outputPath: string): Promise<void> {
+    const content = readFileSync(asset.path);
+    writeFileSync(outputPath, content);
+  }
+
+  /**
+   * Optimize image asset
+   */
+  private async optimizeImage(asset: AssetInfo, outputPath: string): Promise<void> {
+    // For now, just copy the image
+    // In a real implementation, you would use libraries like sharp or imagemin
+    await this.copyAsset(asset, outputPath);
+    
+    // TODO: Implement actual image optimization
+    // - Resize images to appropriate dimensions
+    // - Convert to modern formats (WebP, AVIF)
+    // - Compress with appropriate quality settings
+    // - Generate responsive image variants
+  }
+
+  /**
+   * Optimize CSS asset
+   */
+  private async optimizeCSS(asset: AssetInfo, outputPath: string): Promise<void> {
+    const content = readFileSync(asset.path, 'utf8');
+    
+    // Basic CSS optimization
+    let optimized = content
+      // Remove comments
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      // Remove extra whitespace
+      .replace(/\s+/g, ' ')
+      // Remove unnecessary semicolons
+      .replace(/;}/g, '}')
+      // Remove space around colons
+      .replace(/:\s+/g, ':')
+      .replace(/\s+:/g, ':')
+      // Remove space around commas
+      .replace(/,\s+/g, ',')
+      .replace(/\s+,/g, ',')
+      .trim();
+    
+    writeFileSync(outputPath, optimized);
+    
+    // TODO: Implement advanced CSS optimization
+    // - Minify CSS with cssnano or similar
+    // - Remove unused CSS rules
+    // - Optimize selectors
+    // - Inline critical CSS
+    // - Combine and bundle CSS files
+  }
+
+  /**
+   * Optimize JavaScript asset
+   */
+  private async optimizeJS(asset: AssetInfo, outputPath: string): Promise<void> {
+    const content = readFileSync(asset.path, 'utf8');
+    
+    // Basic JS optimization
+    let optimized = content
+      // Remove single-line comments (but preserve // in strings)
+      .replace(/\/\/.*$/gm, '')
+      // Remove multi-line comments
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      // Remove extra whitespace
+      .replace(/\s+/g, ' ')
+      // Remove space around operators
+      .replace(/\s*([=+\-*/])\s*/g, '$1')
+      .trim();
+    
+    writeFileSync(outputPath, optimized);
+    
+    // TODO: Implement advanced JS optimization
+    // - Minify with terser or similar
+    // - Remove dead code
+    // - Tree shake unused exports
+    // - Bundle and combine JS files
+    // - Add source maps for debugging
+  }
+
+  /**
+   * Generate asset manifest
+   */
+  private async generateAssetManifest(): Promise<void> {
+    const manifest = {
+      version: '1.0.0',
+      generatedAt: new Date().toISOString(),
+      assets: this.assets.map(asset => ({
+        name: asset.name,
+        type: asset.type,
+        size: asset.size,
+        path: join(this.config.assetOutputDir || 'assets', asset.name),
+        hash: this.generateAssetHash(asset)
+      }))
+    };
+
+    const manifestPath = join(this.config.outputDir, 'asset-manifest.json');
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  }
+
+  /**
+   * Generate hash for asset content
+   */
+  private generateAssetHash(asset: AssetInfo): string {
+    const content = readFileSync(asset.path);
+    return createHash('md5').update(content).digest('hex').substring(0, 8);
   }
 
   /**

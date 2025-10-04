@@ -37,8 +37,8 @@ module.exports = {
   workerThreads: true,
   maxWorkers: 16,
 
-  // Memory management
-  maxOldSpaceSize: 14336, // 14GB
+  // Memory management - using centralized config
+  maxOldSpaceSize: 14336, // 14GB - matches centralized config
   gc: true,
 
   // Memory efficient compilation

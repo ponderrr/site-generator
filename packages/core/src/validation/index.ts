@@ -1,5 +1,11 @@
 import { ValidationResult, ValidationError, ValidationWarning, DeepPartial } from '../types';
 
+// Export the new Zod-based validation system
+export * from './zod-validator';
+
+/**
+ * @deprecated Use ZodValidator instead for better type safety and performance
+ */
 export class Validator {
   private rules: Map<string, ValidationRule[]> = new Map();
 
@@ -101,7 +107,7 @@ export class RequiredRule implements ValidationRule {
   private message?: string;
 
   constructor(message?: string) {
-    this.message = message;
+    this.message = message || undefined;
   }
 
   validate(value: any, context?: any, field?: string): RuleResult {
@@ -410,6 +416,9 @@ export class CustomRule implements ValidationRule {
 }
 
 // Pre-built validators for common use cases
+/**
+ * @deprecated Use zodURLValidator instead
+ */
 export class URLValidator {
   private validator: Validator;
 
@@ -434,6 +443,9 @@ export class URLValidator {
   }
 }
 
+/**
+ * @deprecated Use zodEmailValidator instead
+ */
 export class EmailValidator {
   private validator: Validator;
   private emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -452,6 +464,9 @@ export class EmailValidator {
   }
 }
 
+/**
+ * @deprecated Use zodConfigValidator instead
+ */
 export class ConfigValidator {
   private validator: Validator;
 

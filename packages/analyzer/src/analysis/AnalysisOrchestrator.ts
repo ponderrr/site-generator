@@ -3,6 +3,7 @@ import Piscina from 'piscina';
 import { LRUCache } from 'lru-cache';
 import { createHash } from 'crypto';
 import pLimit from 'p-limit';
+import { DEFAULT_WORKER_CONFIG, DEFAULT_CACHE_CONFIG, MemoryMonitor } from '../../../core/src/config/memory.config';
 import type {
   ExtractedPage,
   AnalysisResult,
@@ -21,7 +22,7 @@ export class AnalysisOrchestrator {
   private resultCache: LRUCache<string, AnalysisResult>;
   private taskCounter: number = 0;
   private progressCallback?: ((progress: AnalysisProgress) => void) | undefined;
-  private memoryMonitor?: NodeJS.Timeout | undefined;
+  private memoryMonitor: MemoryMonitor;
   private isMemoryPressureHigh: boolean = false;
   private healthCheckInterval?: NodeJS.Timeout | undefined;
   private activeTasks: Set<string> = new Set();
@@ -33,8 +34,8 @@ export class AnalysisOrchestrator {
       idleTimeout: 60000,
       maxQueue: 1000,
       resourceLimits: {
-        maxOldGenerationSizeMb: 1024,
-        maxYoungGenerationSizeMb: 256,
+        maxOldGenerationSizeMb: DEFAULT_WORKER_CONFIG.maxOldGenerationSizeMb,
+        maxYoungGenerationSizeMb: DEFAULT_WORKER_CONFIG.maxYoungGenerationSizeMb,
       },
     },
     private analysisOptions: AnalysisOptions = {
@@ -58,14 +59,17 @@ export class AnalysisOrchestrator {
       resourceLimits: options.resourceLimits,
     });
 
-    // Result cache with content-based keys
+    // Result cache with content-based keys using centralized config
     this.resultCache = new LRUCache({
-      max: 1000,
-      ttl: this.analysisOptions.cacheTTL,
+      max: DEFAULT_CACHE_CONFIG.maxItems,
+      ttl: DEFAULT_CACHE_CONFIG.ttl,
       updateAgeOnGet: true,
       updateAgeOnHas: true,
       allowStale: true
     });
+
+    // Initialize memory monitor
+    this.memoryMonitor = new MemoryMonitor();
 
     this.setupWorkerMonitoring();
     this.startMemoryMonitoring();
@@ -118,6 +122,62 @@ export class AnalysisOrchestrator {
     console.log(`✅ Analysis completed in ${totalTime}ms for ${pages.length} pages`);
 
     return results;
+  }
+
+  /**
+   * Stream analysis results to reduce memory pressure
+   */
+  async *analyzeContentStreaming(
+    pages: ExtractedPage[],
+    onProgress?: (progress: AnalysisProgress) => void
+  ): AsyncGenerator<AnalysisResult, void, unknown> {
+    this.progressCallback = onProgress || undefined;
+    const startTime = Date.now();
+
+    console.log(`🚀 Starting streaming analysis of ${pages.length} pages`);
+
+    // Process in smaller batches for streaming
+    const batchSize = Math.min(this.analysisOptions.batchSize, 10); // Smaller batches for streaming
+    const batches = this.chunkArray(pages, batchSize);
+    const totalBatches = batches.length;
+    let processedCount = 0;
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      if (!batch) continue;
+      const batchStartTime = Date.now();
+
+      console.log(`📊 Streaming batch ${i + 1}/${totalBatches} (${batch.length} pages)`);
+
+      // Process batch and yield results immediately
+      for (const page of batch) {
+        try {
+          const result = await this.analyzePageWithCache(page);
+          processedCount++;
+          
+          // Yield result immediately to reduce memory pressure
+          yield result;
+
+          // Report progress
+          const progress = this.calculateProgress(i + 1, totalBatches, 1, processedCount, pages.length, batchStartTime);
+          if (this.progressCallback) {
+            this.progressCallback(progress);
+          }
+
+        } catch (error) {
+          console.error(`Failed to analyze ${page.url}:`, error);
+          // Continue processing other pages even if one fails
+        }
+      }
+
+      // Force garbage collection between batches
+      if (global.gc) {
+        global.gc();
+      }
+    }
+
+    const totalTime = Date.now() - startTime;
+    console.log(`✅ Streaming analysis completed in ${totalTime}ms for ${pages.length} pages`);
   }
 
   private async analyzeBatch(pages: ExtractedPage[]): Promise<AnalysisResult[]> {
@@ -365,8 +425,32 @@ export class AnalysisOrchestrator {
   }
 
   private generateCacheKey(page: ExtractedPage): string {
-    const content = `${page.url}${page.title}${page.markdown}`;
-    return createHash('sha256').update(content).digest('hex');
+    // Create structured cache key with versioning for better debugging
+    const cacheVersion = '1.0.0';
+    const stableProps = {
+      url: page.url,
+      title: page.title,
+      contentHash: this.hashContent(page.markdown),
+      version: cacheVersion,
+      timestamp: Math.floor(Date.now() / (1000 * 60 * 60)) // Hour-based timestamp
+    };
+    
+    // Create a more readable key structure
+    const keyData = JSON.stringify(stableProps);
+    const hash = createHash('sha256').update(keyData).digest('hex').substring(0, 16);
+    
+    // Return structured key: analysis:v1.0.0:url_hash:content_hash
+    const urlHash = createHash('md5').update(page.url).digest('hex').substring(0, 8);
+    const contentHash = stableProps.contentHash.substring(0, 8);
+    
+    return `analysis:v${cacheVersion}:${urlHash}:${contentHash}:${hash}`;
+  }
+
+  /**
+   * Generate content hash for caching
+   */
+  private hashContent(content: string): string {
+    return createHash('md5').update(content).digest('hex');
   }
 
   private setupWorkerMonitoring(): void {
@@ -506,30 +590,28 @@ export class AnalysisOrchestrator {
    * Start memory monitoring
    */
   private startMemoryMonitoring(): void {
-    this.memoryMonitor = setInterval(() => {
-      const usage = process.memoryUsage();
-      const memoryPressure = usage.heapUsed / usage.heapTotal;
-      
-      if (memoryPressure > 0.85) {
+    this.memoryMonitor.startMonitoring(
+        (usage: NodeJS.MemoryUsage) => {
         if (!this.isMemoryPressureHigh) {
           console.warn('⚠️ High memory pressure detected, reducing batch processing');
           this.isMemoryPressureHigh = true;
         }
-      } else if (this.isMemoryPressureHigh) {
-        console.log('✅ Memory pressure normalized');
-        this.isMemoryPressureHigh = false;
+      },
+        (usage: NodeJS.MemoryUsage) => {
+        console.error('🚨 Critical memory pressure detected!', usage);
+        // Force garbage collection
+        if (global.gc) {
+          global.gc();
+        }
       }
-    }, 1000);
+    );
   }
 
   /**
    * Stop memory monitoring
    */
   private stopMemoryMonitoring(): void {
-    if (this.memoryMonitor) {
-      clearInterval(this.memoryMonitor);
-      this.memoryMonitor = undefined;
-    }
+    this.memoryMonitor.stopMonitoring();
   }
 
   /**
@@ -543,10 +625,37 @@ export class AnalysisOrchestrator {
   }
 
   /**
-   * Destroy the orchestrator and clean up resources
+   * Destroy the orchestrator and clean up resources with graceful shutdown
    */
   async destroy(): Promise<void> {
-    await this.workerPool.destroy();
-    this.cleanup();
+    console.log('🔄 Starting graceful shutdown of analysis orchestrator...');
+    
+    try {
+      // Stop accepting new tasks
+      this.activeTasks.clear();
+      
+      // Wait for any remaining health checks to complete
+      this.stopHealthChecks();
+      
+      // Stop memory monitoring
+      this.stopMemoryMonitoring();
+      
+      // Clear cache
+      this.clearCache();
+      
+      // Destroy worker pool with timeout
+      await Promise.race([
+        this.workerPool.destroy(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Worker pool destroy timeout')), 10000)
+        )
+      ]);
+      
+      console.log('✅ Analysis orchestrator shutdown completed successfully');
+      
+    } catch (error) {
+      console.error('❌ Analysis orchestrator shutdown failed:', error);
+      throw error;
+    }
   }
 }

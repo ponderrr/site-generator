@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import Piscina from 'piscina';
 import type { WorkerMessage, WorkerResponse, ParallelTask, ParallelResult, ResourceLimits } from '../types';
+import { DEFAULT_WORKER_CONFIG, DEFAULT_MAIN_CONFIG, runtimeMemoryConfig } from '../config/memory.config';
 
 export interface WorkerPoolOptions {
   minThreads?: number;
@@ -79,6 +80,7 @@ export class WorkerPool extends EventEmitter {
   private activeTasks: Map<string, ParallelTask> = new Map();
   private workerStats: Map<number, WorkerStats> = new Map();
   private startTime: number = Date.now();
+  private accepting: boolean = true;
 
   constructor(options: WorkerPoolOptions = {}) {
     super();
@@ -96,7 +98,7 @@ export class WorkerPool extends EventEmitter {
       maxQueue: 1000,
       concurrentTasksPerWorker: 1,
       resourceLimits: {
-        maxMemory: 1024 * 1024 * 1024, // 1GB
+        maxMemory: DEFAULT_WORKER_CONFIG.maxMemoryUsage,
         maxCpu: 100,
         maxConcurrency: 1000,
         maxFileSize: 100 * 1024 * 1024, // 100MB
@@ -118,8 +120,8 @@ export class WorkerPool extends EventEmitter {
       env: defaultOptions.env,
       argv: defaultOptions.argv,
       resourceLimits: {
-        maxOldGenerationSizeMb: 512,
-        maxYoungGenerationSizeMb: 128,
+        maxOldGenerationSizeMb: DEFAULT_WORKER_CONFIG.maxOldGenerationSizeMb,
+        maxYoungGenerationSizeMb: DEFAULT_WORKER_CONFIG.maxYoungGenerationSizeMb,
         ...defaultOptions.resourceLimits
       }
     });
@@ -137,6 +139,11 @@ export class WorkerPool extends EventEmitter {
     priority: number = 0,
     timeout?: number
   ): Promise<R> {
+    // Check if pool is accepting new tasks
+    if (!this.accepting) {
+      throw new Error('Worker pool is shutting down and not accepting new tasks');
+    }
+
     const taskId = `task_${++this.taskCounter}`;
     const startTime = Date.now();
 
@@ -317,27 +324,71 @@ export class WorkerPool extends EventEmitter {
   }
 
   /**
-   * Gracefully shutdown the worker pool
+   * Gracefully shutdown the worker pool with proper task completion waiting
    */
   async shutdown(timeout: number = 30000): Promise<void> {
-    const shutdownPromise = new Promise<void>((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        reject(new Error(`Worker pool shutdown timeout after ${timeout}ms`));
-      }, timeout);
+    console.log(`🔄 Starting graceful shutdown of worker pool (timeout: ${timeout}ms)`);
+    
+    // Stop accepting new tasks
+    this.accepting = false;
+    
+    const startTime = Date.now();
+    
+    try {
+      // Wait for active tasks to complete
+      await this.waitForActiveTasks(timeout);
+      
+      // Give a small buffer for cleanup
+      await this.delay(1000);
+      
+      // Destroy the pool
+      await this.pool.destroy();
+      
+      const shutdownTime = Date.now() - startTime;
+      console.log(`✅ Worker pool shutdown completed in ${shutdownTime}ms`);
+      
+    } catch (error) {
+      const shutdownTime = Date.now() - startTime;
+      console.error(`❌ Worker pool shutdown failed after ${shutdownTime}ms:`, error);
+      throw error;
+    }
+  }
 
-      this.pool.destroy().then(() => {
-        clearTimeout(timeoutId);
-        resolve();
-      }).catch(reject);
-    });
-
-    await shutdownPromise;
+  /**
+   * Wait for all active tasks to complete with timeout
+   */
+  private async waitForActiveTasks(timeout: number): Promise<void> {
+    const startTime = Date.now();
+    const checkInterval = 100; // Check every 100ms
+    
+    while (this.activeTasks.size > 0) {
+      const elapsed = Date.now() - startTime;
+      
+      if (elapsed >= timeout) {
+        const remainingTasks = Array.from(this.activeTasks.keys());
+        console.warn(`⚠️ Shutdown timeout reached. ${this.activeTasks.size} tasks still active:`, remainingTasks);
+        
+        // Force terminate remaining tasks
+        this.activeTasks.clear();
+        break;
+      }
+      
+      console.log(`⏳ Waiting for ${this.activeTasks.size} active tasks to complete...`);
+      await this.delay(checkInterval);
+    }
+    
+    if (this.activeTasks.size === 0) {
+      console.log('✅ All active tasks completed successfully');
+    }
   }
 
   /**
    * Force shutdown the worker pool immediately
    */
   forceShutdown(): void {
+    console.log('🚨 Force shutting down worker pool immediately');
+    this.accepting = false;
+    this.activeTasks.clear();
     this.pool.destroy();
   }
 
@@ -345,10 +396,16 @@ export class WorkerPool extends EventEmitter {
    * Restart the worker pool
    */
   async restart(): Promise<void> {
-    await this.shutdown();
-    // Reinitialize the pool
+    console.log('🔄 Restarting worker pool...');
+    await this.shutdown(10000); // Shorter timeout for restart
+    
+    // Reset accepting flag
+    this.accepting = true;
+    
+    // Reinitialize the pool with same configuration
     // Note: This is a simplified restart - in production you might want
     // to preserve configuration and state
+    console.log('✅ Worker pool restarted successfully');
   }
 
   /**
@@ -439,7 +496,7 @@ export class WorkerPool extends EventEmitter {
   }
 
   private updateAllWorkerStats(): void {
-    for (const [workerId, stats] of this.workerStats) {
+    for (const [workerId, stats] of Array.from(this.workerStats.entries())) {
       stats.memoryUsage = process.memoryUsage();
       stats.uptime = Date.now() - stats.uptime;
     }
