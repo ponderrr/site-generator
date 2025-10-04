@@ -14,8 +14,7 @@ vi.mock('path', () => ({
   basename: vi.fn((path) => path.split('/').pop() || ''),
 }));
 
-// Mock Piscina - make run() fail so it falls back to direct analysis
-// This prevents Piscina from trying to load actual worker files
+// Mock Piscina - match actual API behavior and make it fail to use direct analysis
 vi.mock('piscina', () => {
   const MockPiscina = vi.fn().mockImplementation(() => ({
     run: vi.fn().mockRejectedValue(new Error('Worker not available - using direct analysis')),

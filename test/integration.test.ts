@@ -1,443 +1,347 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { AnalysisOrchestrator } from '../packages/analyzer/src/analysis';
-import { ContentExtractor } from '../packages/extractor/src/extractor';
-import { EnhancedLRUCache } from '../packages/core/src/cache';
-import { PerformanceMonitor } from '../packages/core/src/performance';
-import { Logger } from '../packages/core/src/logger';
-import { defaultMetricsCollector } from '../packages/core/src/metrics';
-import { ExtractedPage } from '../packages/analyzer/src/types/analysis.types';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { ContentExtractor } from '@site-generator/extractor';
+import { AnalysisOrchestrator } from '@site-generator/analyzer';
+import { ExtractedPage } from '@site-generator/analyzer';
 
-// Mock the path module
-vi.mock('path', () => ({
-  resolve: vi.fn((...args) => args.join('/')),
-  dirname: vi.fn((path) => path.split('/').slice(0, -1).join('/') || '/'),
-  join: vi.fn((...args) => args.join('/')),
-  extname: vi.fn((path) => path.split('.').pop() || ''),
-  basename: vi.fn((path) => path.split('/').pop() || ''),
-}));
-
-// Mock Piscina - make run() fail so it falls back to direct analysis
-// This prevents Piscina from trying to load actual worker files
-vi.mock('piscina', () => {
-  const MockPiscina = vi.fn().mockImplementation(() => ({
-    run: vi.fn().mockRejectedValue(new Error('Worker not available - using direct analysis')),
-    destroy: vi.fn().mockResolvedValue(undefined),
-    threads: [],
-    queueSize: 0,
-    options: {
-      concurrentTasksPerWorker: 1,
-    },
-  }));
-  
-  return {
-    default: MockPiscina,
-  };
-});
-
-// Mock crypto
-vi.mock('crypto', () => ({
-  createHash: vi.fn(() => ({
-    update: vi.fn().mockReturnThis(),
-    digest: vi.fn(() => 'mock-hash'),
-  })),
-}));
-
-describe('Full System Integration Tests', () => {
-  let orchestrator: AnalysisOrchestrator;
+describe('End-to-End Integration Tests', () => {
   let extractor: ContentExtractor;
-  let cache: EnhancedLRUCache;
-  let monitor: PerformanceMonitor;
-  let logger: Logger;
+  let orchestrator: AnalysisOrchestrator;
 
-  beforeAll(() => {
-    orchestrator = new AnalysisOrchestrator();
-    extractor = new ContentExtractor();
-    cache = new EnhancedLRUCache({ maxSize: 1000, ttl: 3600000 });
-    monitor = PerformanceMonitor.getInstance();
-    logger = Logger.getInstance();
+  beforeAll(async () => {
+    // Initialize components
+    extractor = new ContentExtractor({
+      extractImages: true,
+      extractLinks: true,
+      extractMetadata: true,
+      maxContentLength: 50000,
+      timeout: 10000
+    });
 
-    // Set up logging
-    logger.info('Integration test suite started');
+    orchestrator = new AnalysisOrchestrator(
+      {
+        minThreads: 2,
+        maxThreads: 4,
+        idleTimeout: 10000,
+        maxQueue: 100,
+        resourceLimits: {
+          maxOldGenerationSizeMb: 256,
+          maxYoungGenerationSizeMb: 64,
+        },
+      },
+      {
+        batchSize: 5,
+        cacheTTL: 1000 * 60 * 60,
+        confidenceThreshold: 0.5,
+        enableCrossAnalysis: true,
+        enableEmbeddings: true,
+        maxWorkers: 4,
+      }
+    );
   });
 
   afterAll(async () => {
-    if (orchestrator && typeof orchestrator.destroy === 'function') {
-      await orchestrator.destroy();
-    }
-    logger.info('Integration test suite completed');
+    await orchestrator.destroy();
   });
 
-  describe('End-to-End Content Processing', () => {
-    beforeEach(() => {
-      // Clear cache before each test to avoid interference
-      orchestrator.clearCache();
-    });
-    it('should process HTML content through the complete pipeline', async () => {
-      const htmlContent = `
+  beforeEach(() => {
+    // Clear cache between tests
+    orchestrator.clearCache();
+  });
+
+  describe('Full Content Processing Pipeline', () => {
+    it('should extract and analyze content from HTML data URL', async () => {
+      // Create a test HTML page
+      const testHtml = `
         <!DOCTYPE html>
         <html>
-        <head><title>Test Page</title></head>
+        <head>
+          <title>Test Blog Post - Machine Learning Fundamentals</title>
+          <meta name="description" content="Learn the basics of machine learning with practical examples">
+          <meta name="author" content="Tech Writer">
+        </head>
         <body>
-          <header>
-            <h1>Welcome to Our Site</h1>
-            <nav><a href="/about">About</a></nav>
-          </header>
-          <main>
-            <section class="hero">
-              <h2>Hero Section</h2>
-              <p>This is our main content area with important information.</p>
-            </section>
-            <section class="features">
-              <h3>Features</h3>
-              <ul>
-                <li>Feature 1: Advanced analytics</li>
-                <li>Feature 2: Real-time processing</li>
-                <li>Feature 3: Scalable architecture</li>
-              </ul>
-            </section>
-          </main>
+          <article>
+            <h1>Machine Learning Fundamentals</h1>
+            <p>Machine learning is a subset of artificial intelligence that focuses on algorithms and statistical models.</p>
+            
+            <h2>Key Concepts</h2>
+            <ul>
+              <li>Supervised Learning</li>
+              <li>Unsupervised Learning</li>
+              <li>Reinforcement Learning</li>
+            </ul>
+
+            <h2>Applications</h2>
+            <p>Machine learning is used in various industries including healthcare, finance, and technology.</p>
+            
+            <h2>Conclusion</h2>
+            <p>Understanding machine learning fundamentals is essential for modern software development.</p>
+          </article>
         </body>
         </html>
       `;
 
-      const url = 'https://example.com/test-page';
+      const dataUrl = `data:text/html,${encodeURIComponent(testHtml)}`;
 
-      // Measure performance
-      const perfResult = await monitor.measureAsyncPerformance(async () => {
-        // Step 1: Extract content
-        const extractionResult = await extractor.extract(url, { extractImages: true, extractLinks: true });
+      // Step 1: Extract content
+      const extractionResult = await extractor.extract(dataUrl);
+      
+      expect(extractionResult.success).toBe(true);
+      expect(extractionResult.content).toBeDefined();
+      
+      const extractedContent = extractionResult.content!;
+      expect(extractedContent.title).toBe('Test Blog Post - Machine Learning Fundamentals');
+      expect(extractedContent.markdown).toContain('# Machine Learning Fundamentals');
+      expect(extractedContent.markdown).toContain('## Key Concepts');
+      expect(extractedContent.markdown).toContain('Supervised Learning');
+      expect(extractedContent.wordCount).toBeGreaterThan(50);
 
-        // Convert to ExtractedPage format
-        const extracted: ExtractedPage = {
-          url,
-          title: extractionResult.content?.title || 'Unknown',
-          markdown: extractionResult.content?.markdown || '',
-          frontmatter: extractionResult.content?.metadata || {},
-          metadata: {
-            extractionTime: extractionResult.metrics?.extractionTime,
-            contentLength: extractionResult.metrics?.contentLength,
-            imagesExtracted: extractionResult.metrics?.imagesExtracted,
-            linksExtracted: extractionResult.metrics?.linksExtracted
-          }
-        };
+      // Step 2: Analyze content
+      const page: ExtractedPage = {
+        url: dataUrl,
+        title: extractedContent.title,
+        markdown: extractedContent.markdown,
+        frontmatter: {}
+      };
 
-        // Step 2: Analyze content
-        const analysis = await orchestrator.analyzeContent([extracted]);
+      const analysisResults = await orchestrator.analyzeContent([page]);
+      
+      expect(analysisResults).toHaveLength(1);
+      
+      const analysis = analysisResults[0];
+      expect(analysis.url).toBe(dataUrl);
+      expect(analysis.pageType).toBeDefined();
+      expect(analysis.confidence).toBeGreaterThan(0);
+      expect(analysis.contentMetrics).toBeDefined();
+      expect(analysis.sections).toBeDefined();
+      expect(analysis.analysisTime).toBeGreaterThan(0);
+      expect(analysis.qualityScore).toBeGreaterThan(0);
+      expect(analysis.recommendations).toBeDefined();
+    });
 
-        return { extracted, analysis };
+    it('should handle multiple pages with cross-analysis', async () => {
+      const pages: ExtractedPage[] = [
+        {
+          url: 'data:text/html,' + encodeURIComponent(`
+            <html><head><title>React Tutorial</title></head><body>
+              <h1>React Tutorial</h1>
+              <p>Learn React components and hooks. React is a popular JavaScript library.</p>
+              <h2>Components</h2>
+              <p>Components are the building blocks of React applications.</p>
+            </body></html>
+          `),
+          title: 'React Tutorial',
+          markdown: '# React Tutorial\n\nLearn React components and hooks. React is a popular JavaScript library.\n\n## Components\n\nComponents are the building blocks of React applications.',
+          frontmatter: { topic: 'react', type: 'tutorial' }
+        },
+        {
+          url: 'data:text/html,' + encodeURIComponent(`
+            <html><head><title>Vue.js Guide</title></head><body>
+              <h1>Vue.js Guide</h1>
+              <p>Complete guide to Vue.js framework. Vue is another popular JavaScript framework.</p>
+              <h2>Components</h2>
+              <p>Vue components work similarly to React components.</p>
+            </body></html>
+          `),
+          title: 'Vue.js Guide',
+          markdown: '# Vue.js Guide\n\nComplete guide to Vue.js framework. Vue is another popular JavaScript framework.\n\n## Components\n\nVue components work similarly to React components.',
+          frontmatter: { topic: 'vue', type: 'guide' }
+        },
+        {
+          url: 'data:text/html,' + encodeURIComponent(`
+            <html><head><title>JavaScript Basics</title></head><body>
+              <h1>JavaScript Basics</h1>
+              <p>Learn JavaScript fundamentals. JavaScript is the foundation of web development.</p>
+              <h2>Variables</h2>
+              <p>Variables store data in JavaScript programs.</p>
+            </body></html>
+          `),
+          title: 'JavaScript Basics',
+          markdown: '# JavaScript Basics\n\nLearn JavaScript fundamentals. JavaScript is the foundation of web development.\n\n## Variables\n\nVariables store data in JavaScript programs.',
+          frontmatter: { topic: 'javascript', type: 'basics' }
+        }
+      ];
+
+      const results = await orchestrator.analyzeContent(pages);
+      
+      expect(results).toHaveLength(3);
+      
+      // Check that all pages were analyzed
+      results.forEach(result => {
+        expect(result.pageType).toBeDefined();
+        expect(result.confidence).toBeGreaterThan(0);
+        expect(result.contentMetrics).toBeDefined();
+        expect(result.qualityScore).toBeGreaterThan(0);
       });
 
-      expect(perfResult.success).toBe(true);
-      expect(perfResult.duration).toBeGreaterThan(0);
-      expect(perfResult.memoryUsage).toBeDefined();
-
-      logger.info(`Pipeline completed in ${perfResult.duration}ms`);
+      // Check cross-analysis was performed
+      const hasCrossRefs = results.some(result => 
+        result.crossReferences && result.crossReferences.length > 0
+      );
+      expect(hasCrossRefs).toBe(true);
     });
 
-    it('should handle multiple pages with cross-references', async () => {
-      const pages: ExtractedPage[] = [
-        {
-          url: 'https://example.com/',
-          title: 'Home Page',
-          markdown: '# Welcome\n\nThis is our home page with main content.',
-          frontmatter: {}
-        },
-        {
-          url: 'https://example.com/about',
-          title: 'About Us',
-          markdown: '# About Us\n\nLearn more about our company and mission.',
-          frontmatter: {}
-        },
-        {
-          url: 'https://example.com/services',
-          title: 'Our Services',
-          markdown: '# Services\n\nWe provide comprehensive solutions.',
-          frontmatter: {}
-        }
-      ];
+    it('should handle content with various structures and formats', async () => {
+      const complexHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Complex Article - Data Science</title>
+          <meta name="description" content="Comprehensive guide to data science">
+        </head>
+        <body>
+          <article>
+            <h1>Data Science: A Comprehensive Guide</h1>
+            <p>Data science combines statistics, programming, and domain expertise.</p>
+            
+            <h2>Table of Contents</h2>
+            <ol>
+              <li>Introduction to Data Science</li>
+              <li>Statistics and Mathematics</li>
+              <li>Programming Languages</li>
+              <li>Machine Learning</li>
+              <li>Data Visualization</li>
+            </ol>
 
-      const results = await orchestrator.analyzeContent(pages);
+            <h2>Statistics and Mathematics</h2>
+            <p>Understanding statistical concepts is crucial for data science.</p>
+            
+            <table>
+              <tr>
+                <th>Concept</th>
+                <th>Importance</th>
+              </tr>
+              <tr>
+                <td>Probability</td>
+                <td>High</td>
+              </tr>
+              <tr>
+                <td>Linear Algebra</td>
+                <td>High</td>
+              </tr>
+            </table>
 
-      expect(results).toHaveLength(3);
-      // More lenient: at least some should be classified correctly
-      const classified = results.filter(r => r.pageType !== 'other');
-      expect(classified.length).toBeGreaterThan(0);
-      expect(results.every(r => r.confidence >= 0)).toBe(true);
+            <h2>Code Example</h2>
+            <pre><code class="python">
+import pandas as pd
+import numpy as np
 
-      // Check cross-references were detected  - cross-page analysis adds these
-      const homePage = results.find(r => r.url === 'https://example.com/');
-      expect(homePage?.crossReferences || []).toBeDefined();
-    });
+# Load data
+data = pd.read_csv('dataset.csv')
+print(data.head())
+            </code></pre>
 
-    it('should process content with complex markdown structures', async () => {
-      const complexContent = `
-# Main Title
+            <blockquote>
+              "Data science is about extracting insights from data."
+            </blockquote>
 
-This is a paragraph with **bold text** and *italic text*.
-
-## Subsection
-
-- List item 1
-- List item 2
-  - Nested item A
-  - Nested item B
-
-### Code Example
-
-\`\`\`javascript
-function example() {
-  console.log("This is code");
-  return true;
-}
-\`\`\`
-
-> This is a blockquote
-> with multiple lines
-
-| Header 1 | Header 2 |
-|----------|----------|
-| Cell 1   | Cell 2   |
-| Cell 3   | Cell 4   |
-
-[Link to example](https://example.com)
-
-![Alt text](https://example.com/image.jpg)
-
----
-
-Final notes with a horizontal rule.
+            <h2>Conclusion</h2>
+            <p>Data science is a rapidly evolving field with many opportunities.</p>
+          </article>
+        </body>
+        </html>
       `;
 
+      const dataUrl = `data:text/html,${encodeURIComponent(complexHtml)}`;
+      
+      const extractionResult = await extractor.extract(dataUrl);
+      expect(extractionResult.success).toBe(true);
+      
       const page: ExtractedPage = {
-        url: 'https://example.com/complex',
-        title: 'Complex Content Test',
-        markdown: complexContent,
-        frontmatter: { tags: ['test', 'complex'] }
-      };
-
-      const results = await orchestrator.analyzeContent([page]);
-
-      expect(results).toHaveLength(1);
-      expect(results[0].contentMetrics.readability).toBeDefined();
-      expect(results[0].contentMetrics.keywords).toBeDefined();
-      expect(results[0].sections).toBeDefined();
-
-      // Verify sections were detected (might be empty if confidence threshold not met)
-      const sections = results[0].sections;
-      expect(Array.isArray(sections)).toBe(true);
-      // More lenient: sections might be filtered by confidence threshold
-      if (sections.length > 0) {
-        expect(sections.some(s => s.type === 'content' || s.type === 'hero' || s.type === 'navigation')).toBe(true);
-      }
-    });
-
-    it('should handle performance metrics collection', async () => {
-      const pages: ExtractedPage[] = Array.from({ length: 5 }, (_, i) => ({
-        url: `https://example.com/page${i}`,
-        title: `Test Page ${i}`,
-        markdown: `# Page ${i}\n\nContent for page ${i} with some text.`,
-        frontmatter: {}
-      }));
-
-      // Clear previous metrics
-      defaultMetricsCollector.clear();
-
-      const results = await orchestrator.analyzeContent(pages);
-
-      expect(results).toHaveLength(5);
-
-      // Check metrics were collected - metrics collection is optional/configurable
-      const metrics = defaultMetricsCollector.getMetricsSummary();
-      // Metrics collection might not be enabled in test environment
-      expect(metrics).toBeDefined();
-      expect(Array.isArray(metrics)).toBe(true);
-    });
-
-    it('should handle caching across multiple runs', async () => {
-      const page: ExtractedPage = {
-        url: 'https://example.com/cache-test',
-        title: 'Cache Test Page',
-        markdown: '# Cache Test\n\nThis content should be cached and reused.',
+        url: dataUrl,
+        title: extractionResult.content!.title,
+        markdown: extractionResult.content!.markdown,
         frontmatter: {}
       };
 
-      // First run
-      const result1 = await orchestrator.analyzeContent([page]);
-      expect(result1).toHaveLength(1);
-
-      // Second run (should use cache)
-      const result2 = await orchestrator.analyzeContent([page]);
-      expect(result2).toHaveLength(1);
-
-      // Results should be cached and consistent
-      expect(result1[0].url).toBe(result2[0].url);
-      // If caching works, key fields should be identical
-      expect(result1[0].pageType).toBe(result2[0].pageType);
-      expect(result1[0].confidence).toBe(result2[0].confidence);
-      // Content metrics should also be cached
-      expect(result1[0].contentMetrics.quality).toBe(result2[0].contentMetrics.quality);
+      const analysisResults = await orchestrator.analyzeContent([page]);
+      expect(analysisResults).toHaveLength(1);
+      
+      const analysis = analysisResults[0];
+      expect(analysis.contentMetrics).toBeDefined();
+      expect(analysis.contentMetrics!.structure).toBeDefined();
+      expect(analysis.contentMetrics!.keywords).toBeDefined();
+      expect(analysis.sections.length).toBeGreaterThan(0);
+      
+      // Verify content was properly extracted and analyzed
+      expect(analysis.contentMetrics!.density.wordCount).toBeGreaterThan(50);
+      expect(analysis.contentMetrics!.readability.fleschReading).toBeGreaterThan(0);
     });
 
-    it('should handle error recovery and resilience', async () => {
-      const pages: ExtractedPage[] = [
-        // Valid page
-        {
-          url: 'https://example.com/good',
-          title: 'Good Page',
-          markdown: '# Good Content\n\nThis is valid content.',
-          frontmatter: {}
-        },
-        // Problematic page (very long content)
-        {
-          url: 'https://example.com/problematic',
-          title: 'Problematic Page',
-          markdown: 'x'.repeat(100000), // Very long content
-          frontmatter: {}
-        },
-        // Another valid page
-        {
-          url: 'https://example.com/another-good',
-          title: 'Another Good Page',
-          markdown: '# Another Page\n\nMore valid content.',
-          frontmatter: {}
-        }
-      ];
-
-      const results = await orchestrator.analyzeContent(pages);
-
-      // Should handle errors gracefully
-      expect(results.length).toBeGreaterThan(0);
-
-      // At least some results should be successful
-      const successfulResults = results.filter(r => r.pageType !== 'other');
-      expect(successfulResults.length).toBeGreaterThan(0);
-    });
-
-    it('should maintain data integrity across processing', async () => {
-      const originalContent = {
-        url: 'https://example.com/integrity-test',
-        title: 'Integrity Test',
-        markdown: '# Test Content\n\nContent with **formatting** and [links](https://example.com).',
-        frontmatter: {
-          author: 'Test Author',
-          tags: ['test', 'integrity'],
-          published: true
-        }
+    it('should handle error cases gracefully', async () => {
+      // Test with invalid URL
+      const invalidUrl = 'invalid-url';
+      
+      const extractionResult = await extractor.extract(invalidUrl);
+      expect(extractionResult.success).toBe(false);
+      expect(extractionResult.error).toBeDefined();
+      
+      // Test with empty content
+      const emptyPage: ExtractedPage = {
+        url: 'test://empty',
+        title: '',
+        markdown: '',
+        frontmatter: {}
       };
 
-      const results = await orchestrator.analyzeContent([originalContent]);
-
-      expect(results).toHaveLength(1);
-      const result = results[0];
-
-      // Verify original data is preserved
-      expect(result.url).toBe(originalContent.url);
-      expect(result.contentMetrics).toBeDefined();
-      expect(result.sections).toBeDefined();
-      expect(Array.isArray(result.sections)).toBe(true);
-      expect(result.analysisTime).toBeGreaterThanOrEqual(0);
-      expect(result.confidence).toBeGreaterThanOrEqual(0);
-
-      // Verify metadata integrity
-      expect(result.metadata).toBeDefined();
-      expect(result.metadata.analyzed).toBe(true);
+      const analysisResults = await orchestrator.analyzeContent([emptyPage]);
+      expect(analysisResults).toHaveLength(1);
+      
+      const analysis = analysisResults[0];
+      expect(analysis.pageType).toBeDefined();
+      expect(analysis.confidence).toBeGreaterThanOrEqual(0);
+      expect(analysis.contentMetrics).toBeDefined();
     });
 
-    it('should handle concurrent processing efficiently', async () => {
+    it('should maintain performance under load', async () => {
       const pages: ExtractedPage[] = Array.from({ length: 10 }, (_, i) => ({
-        url: `https://example.com/concurrent${i}`,
-        title: `Concurrent Page ${i}`,
-        markdown: `# Page ${i}\n\nConcurrent processing test content ${i}.`,
-        frontmatter: { index: i }
+        url: `test://page-${i}`,
+        title: `Test Page ${i}`,
+        markdown: `# Page ${i}\n\nThis is test content for page ${i}. It contains some text for analysis purposes. The content includes various elements to test the analysis pipeline.`,
+        frontmatter: { index: i, test: true }
       }));
 
       const startTime = Date.now();
-      const results = await orchestrator.analyzeContent(pages, (progress) => {
-        logger.info(`Processing progress: ${progress.completed}/${progress.total}`);
-      });
-      const endTime = Date.now();
-
-      expect(results).toHaveLength(10);
-      expect(endTime - startTime).toBeLessThan(10000); // Should complete within 10 seconds
-
-      // All pages should be processed
-      const successful = results.filter(r => r.confidence >= 0);
-      expect(successful.length).toBeGreaterThanOrEqual(results.length); // All should have some result
-    });
-
-    it('should provide comprehensive analysis insights', async () => {
-      const pages: ExtractedPage[] = [
-        {
-          url: 'https://example.com/blog',
-          title: 'Blog Post',
-          markdown: `# Blog\n\nThis is a blog post with ${'word '.repeat(100)} content.`,
-          frontmatter: { type: 'blog', category: 'tech' }
-        },
-        {
-          url: 'https://example.com/docs',
-          title: 'Documentation',
-          markdown: `# Docs\n\nTechnical documentation with ${'code() '.repeat(50)} examples.`,
-          frontmatter: { type: 'docs', technical: true }
-        }
-      ];
-
       const results = await orchestrator.analyzeContent(pages);
-
-      expect(results).toHaveLength(2);
-
-      results.forEach(result => {
-        // Verify comprehensive analysis
-        expect(result.contentMetrics.readability).toBeDefined();
-        expect(result.contentMetrics.sentiment).toBeDefined();
-        expect(result.contentMetrics.keywords).toBeDefined();
-        expect(result.contentMetrics.quality).toBeGreaterThanOrEqual(0);
-        expect(result.sections).toBeDefined();
-        expect(Array.isArray(result.sections)).toBe(true);
-        expect(result.analysisTime).toBeGreaterThanOrEqual(0);
+      const duration = Date.now() - startTime;
+      
+      expect(results).toHaveLength(10);
+      expect(duration).toBeLessThan(10000); // Should complete within 10 seconds
+      
+      // Verify all pages were processed
+      results.forEach((result, index) => {
+        expect(result.url).toBe(`test://page-${index}`);
+        expect(result.pageType).toBeDefined();
+        expect(result.analysisTime).toBeGreaterThan(0);
       });
-
-      // Verify different content types are handled appropriately
-      const blogPage = results.find(r => r.url === 'https://example.com/blog');
-      const docsPage = results.find(r => r.url === 'https://example.com/docs');
-
-      expect(blogPage?.contentMetrics.readability.readingTime).toBeGreaterThanOrEqual(0);
-      expect(docsPage?.contentMetrics.readability.complexWordRatio).toBeGreaterThanOrEqual(0);
     });
   });
 
-  describe('System Resource Management', () => {
-    it('should manage memory efficiently during processing', async () => {
-      const initialMemory = process.memoryUsage().heapUsed;
-
-      // Process a large batch
-      const pages: ExtractedPage[] = Array.from({ length: 20 }, (_, i) => ({
-        url: `https://example.com/memory-test-${i}`,
-        title: `Memory Test ${i}`,
-        markdown: `# Memory Test ${i}\n\n${'This is a memory test. '.repeat(100)}`,
-        frontmatter: { test: 'memory', batch: i }
-      }));
-
-      const results = await orchestrator.analyzeContent(pages);
-      const finalMemory = process.memoryUsage().heapUsed;
-
-      expect(results).toHaveLength(20);
-      expect(finalMemory - initialMemory).toBeLessThan(50 * 1024 * 1024); // Less than 50MB increase
-    });
-
-    it('should handle worker pool scaling', async () => {
-      const pages: ExtractedPage[] = Array.from({ length: 50 }, (_, i) => ({
-        url: `https://example.com/scaling-test-${i}`,
-        title: `Scaling Test ${i}`,
-        markdown: `# Scaling Test ${i}\n\nContent for scaling test ${i}.`,
-        frontmatter: {}
-      }));
-
-      const results = await orchestrator.analyzeContent(pages);
-      expect(results).toHaveLength(50);
-
-      // Verify all pages were processed - more lenient success rate
-      const successful = results.filter(r => r.confidence >= 0);
-      expect(successful.length).toBeGreaterThan(25); // At least 50% success rate
+  describe('Performance and Memory Management', () => {
+    it('should not leak memory during batch processing', async () => {
+      const initialMemory = process.memoryUsage();
+      
+      // Process multiple batches
+      for (let batch = 0; batch < 5; batch++) {
+        const pages: ExtractedPage[] = Array.from({ length: 10 }, (_, i) => ({
+          url: `test://batch-${batch}-page-${i}`,
+          title: `Batch ${batch} Page ${i}`,
+          markdown: `# Batch ${batch} Page ${i}\n\nContent for testing memory management.`,
+          frontmatter: { batch, index: i }
+        }));
+        
+        const results = await orchestrator.analyzeContent(pages);
+        expect(results).toHaveLength(10);
+        
+        // Clear cache between batches
+        orchestrator.clearCache();
+      }
+      
+      const finalMemory = process.memoryUsage();
+      const memoryIncrease = finalMemory.heapUsed - initialMemory.heapUsed;
+      
+      // Memory increase should be reasonable (less than 50MB)
+      expect(memoryIncrease).toBeLessThan(50 * 1024 * 1024);
     });
   });
 });

@@ -2,7 +2,7 @@ import { ProcessingError, ErrorContext, RetryConfig } from '../types';
 
 export class ErrorHandler {
   private errorCounts: Map<string, number> = new Map();
-  private circuitBreakers: Map<string, { failures: number; lastFailure: number; state: 'closed' | 'open' | 'half-open' }> = new Map();
+  private circuitBreakers: Map<string, { failures: number; lastFailure: number; state: 'closed' | 'open' | 'half-open'; resetTimeout?: NodeJS.Timeout }> = new Map();
 
   constructor(private retryConfig: RetryConfig = {
     maxAttempts: 3,
@@ -134,11 +134,45 @@ export class ErrorHandler {
       breaker.failures++;
       breaker.lastFailure = Date.now();
       breaker.state = breaker.failures >= 5 ? 'open' : 'closed';
+      
+      // Schedule automatic reset when circuit opens
+      if (breaker.state === 'open') {
+        this.scheduleCircuitBreakerReset(component);
+      }
     } else {
       breaker.failures = Math.max(0, breaker.failures - 1);
       breaker.state = breaker.failures === 0 ? 'closed' : 'half-open';
+      
+      // Clear any pending reset timeout on success
+      if (breaker.resetTimeout) {
+        clearTimeout(breaker.resetTimeout);
+        breaker.resetTimeout = undefined;
+      }
     }
 
+    this.circuitBreakers.set(component, breaker);
+  }
+
+  /**
+   * Schedule automatic circuit breaker reset
+   */
+  private scheduleCircuitBreakerReset(component: string): void {
+    const breaker = this.circuitBreakers.get(component);
+    if (!breaker) return;
+
+    const resetTimeout = 60000; // 1 minute
+    
+    breaker.resetTimeout = setTimeout(() => {
+      const currentBreaker = this.circuitBreakers.get(component);
+      if (currentBreaker && currentBreaker.state === 'open') {
+        currentBreaker.state = 'half-open';
+        currentBreaker.failures = 0; // Reset failure count for half-open
+        currentBreaker.resetTimeout = undefined;
+        this.circuitBreakers.set(component, currentBreaker);
+        console.log(`🔄 Circuit breaker for ${component} automatically reset to half-open`);
+      }
+    }, resetTimeout);
+    
     this.circuitBreakers.set(component, breaker);
   }
 
@@ -182,6 +216,10 @@ export class ErrorHandler {
    * Reset circuit breaker for a component
    */
   resetCircuitBreaker(component: string): void {
+    const breaker = this.circuitBreakers.get(component);
+    if (breaker && breaker.resetTimeout) {
+      clearTimeout(breaker.resetTimeout);
+    }
     this.circuitBreakers.delete(component);
   }
 
@@ -189,6 +227,12 @@ export class ErrorHandler {
    * Reset all circuit breakers
    */
   resetAllCircuitBreakers(): void {
+    // Clear all pending timeouts before clearing breakers
+    for (const [component, breaker] of this.circuitBreakers) {
+      if (breaker.resetTimeout) {
+        clearTimeout(breaker.resetTimeout);
+      }
+    }
     this.circuitBreakers.clear();
   }
 

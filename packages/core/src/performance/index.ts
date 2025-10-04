@@ -40,8 +40,12 @@ export class PerformanceMonitor {
     const endTime = performance.now();
     const duration = endTime - startTime;
 
-    // Record the measurement
+    // Record the measurement with bounds checking
     const measurements = this.measurements.get(name) || [];
+    const MAX_MEASUREMENTS = 1000;
+    if (measurements.length >= MAX_MEASUREMENTS) {
+      measurements.shift(); // Remove oldest first
+    }
     measurements.push(duration);
     this.measurements.set(name, measurements);
 
@@ -180,13 +184,14 @@ export class PerformanceMonitor {
     };
 
     const metrics = this.metrics.get(name) || [];
-    metrics.push(metric);
-
-    // Keep only last 1000 metrics per name to prevent memory leaks
-    if (metrics.length > 1000) {
-      metrics.shift();
+    
+    // Enforce limit BEFORE adding new metric to prevent memory leaks
+    const MAX_METRICS = 1000;
+    if (metrics.length >= MAX_METRICS) {
+      metrics.shift(); // Remove oldest first
     }
-
+    
+    metrics.push(metric);
     this.metrics.set(name, metrics);
   }
 

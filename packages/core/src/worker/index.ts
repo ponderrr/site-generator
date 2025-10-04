@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import * as path from 'path';
+import * as fs from 'fs';
 import Piscina from 'piscina';
 import type { WorkerMessage, WorkerResponse, ParallelTask, ParallelResult, ResourceLimits } from '../types';
 
@@ -46,6 +47,33 @@ export declare interface WorkerPool {
   ): boolean;
 }
 
+/**
+ * Resolve worker file path with robust fallback strategy
+ */
+function resolveWorkerPath(workerFileName: string): string {
+  // Try multiple possible locations
+  const possiblePaths = [
+    // Development path (relative to src)
+    path.resolve(__dirname, './workers', workerFileName),
+    // Production path (relative to dist)
+    path.resolve(__dirname, '../workers', workerFileName),
+    // Absolute path if provided
+    workerFileName.startsWith('/') ? workerFileName : null,
+    // Package-relative path
+    path.resolve(process.cwd(), 'packages/core/src/workers', workerFileName),
+    path.resolve(process.cwd(), 'packages/core/dist/workers', workerFileName)
+  ].filter(Boolean) as string[];
+
+  for (const workerPath of possiblePaths) {
+    if (fs.existsSync(workerPath)) {
+      return workerPath;
+    }
+  }
+
+  // If no file found, throw descriptive error
+  throw new Error(`Worker file not found: ${workerFileName}. Tried paths: ${possiblePaths.join(', ')}`);
+}
+
 export class WorkerPool extends EventEmitter {
   private pool: Piscina;
   private taskCounter: number = 0;
@@ -55,6 +83,12 @@ export class WorkerPool extends EventEmitter {
 
   constructor(options: WorkerPoolOptions = {}) {
     super();
+
+    // Resolve worker file path with robust fallback strategy
+    const defaultWorkerFile = options.workerFile || 'base-worker.js';
+    const resolvedWorkerFile = defaultWorkerFile.includes('/') 
+      ? defaultWorkerFile 
+      : resolveWorkerPath(defaultWorkerFile);
 
     const defaultOptions: Required<WorkerPoolOptions> = {
       minThreads: 4,
@@ -69,7 +103,7 @@ export class WorkerPool extends EventEmitter {
         maxFileSize: 100 * 1024 * 1024, // 100MB
         maxRequests: 10000
       },
-      workerFile: path.resolve(__dirname, './workers/base-worker.js'),
+      workerFile: resolvedWorkerFile,
       env: {},
       argv: [],
       ...options
@@ -422,15 +456,15 @@ export const defaultWorkerPool = new WorkerPool();
 export const analysisWorkerPool = new WorkerPool({
   minThreads: 8,
   maxThreads: 16,
-  workerFile: path.resolve(__dirname, './workers/analysis-worker.js')
+  workerFile: 'analysis-worker.js'
 });
 export const extractionWorkerPool = new WorkerPool({
   minThreads: 4,
   maxThreads: 8,
-  workerFile: path.resolve(__dirname, './workers/extraction-worker.js')
+  workerFile: 'extraction-worker.js'
 });
 export const generationWorkerPool = new WorkerPool({
   minThreads: 2,
   maxThreads: 4,
-  workerFile: path.resolve(__dirname, './workers/generation-worker.js')
+  workerFile: 'generation-worker.js'
 });

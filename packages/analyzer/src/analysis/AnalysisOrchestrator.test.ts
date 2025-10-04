@@ -11,20 +11,18 @@ vi.mock('path', () => ({
   basename: vi.fn((path) => path.split('/').pop() || ''),
 }));
 
-// Mock Piscina
+// Mock Piscina - match actual API behavior
 vi.mock('piscina', () => ({
   default: vi.fn().mockImplementation(() => ({
     run: vi.fn().mockResolvedValue({
-      success: true,
-      result: {
-        url: 'https://example.com/test',
-        pageType: 'home',
-        confidence: 0.8,
-        contentMetrics: {},
-        sections: [],
-        analysisTime: 100,
-        metadata: {}
-      }
+      // Piscina returns the result directly, not wrapped in success/error
+      url: 'https://example.com/test',
+      pageType: 'home',
+      confidence: 0.8,
+      contentMetrics: {},
+      sections: [],
+      analysisTime: 100,
+      metadata: {}
     }),
     destroy: vi.fn().mockResolvedValue(undefined),
     threads: [{ id: 1 }, { id: 2 }],

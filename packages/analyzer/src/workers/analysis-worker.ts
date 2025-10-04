@@ -12,7 +12,8 @@ export interface AnalysisWorkerData {
   };
 }
 
-export default async function analysisWorker(data: AnalysisWorkerData): Promise<AnalysisWorkerResult> {
+// Piscina expects CommonJS module.exports format
+module.exports = async function analysisWorker(data: AnalysisWorkerData): Promise<AnalysisWorkerResult> {
   const { task, options } = data;
   const startTime = Date.now();
 
@@ -97,20 +98,15 @@ export default async function analysisWorker(data: AnalysisWorkerData): Promise<
 
     analysis.analysisTime = Date.now() - startTime;
 
-    return {
-      success: true,
-      result: analysis
-    };
+    // Piscina returns the result directly, not wrapped in success/error
+    return analysis;
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-
-    return {
-      success: false,
-      error: errorMessage
-    };
+    // For Piscina, we should throw the error rather than returning it
+    throw new Error(`Analysis worker failed: ${errorMessage}`);
   }
-}
+};
 
 /**
  * Extract related topics from multiple pages

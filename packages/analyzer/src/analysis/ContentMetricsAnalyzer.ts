@@ -348,26 +348,33 @@ export class ContentMetricsAnalyzer implements Analyzer {
   }
 
   private async extractKeywords(text: string): Promise<KeywordAnalysis> {
-    // More comprehensive word filtering for better keyword extraction
+    // Single-pass streaming approach for better performance
+    const frequencies = new Map<string, number>();
+    const positions = new Map<string, number[]>();
+    
+    // Single tokenization pass with immediate processing
     const words = text.toLowerCase()
       .split(/\s+/)
-      .map(w => w.replace(/[^\w\u4e00-\u9fff\$\+\-\*\/\=\^\(\)]/g, '')) // Clean first, keep mathematical symbols
+      .map(w => w.replace(/[^\w\u4e00-\u9fff\$\+\-\*\/\=\^\(\)]/g, ''))
       .filter(w => w.length > 1 && /[a-zA-Z0-9\u4e00-\u9fff]/.test(w) && !this.isStopWord(w));
-
-    // Calculate word frequencies
-    const frequencies = new Map<string, number>();
-    words.forEach(word => {
+    
+    // Single iteration to build both frequency and position maps
+    words.forEach((word, index) => {
       frequencies.set(word, (frequencies.get(word) || 0) + 1);
+      if (!positions.has(word)) positions.set(word, []);
+      positions.get(word)!.push(index);
     });
-
-    // Convert to keyword array
+    
+    const totalWords = words.length;
+    
+    // Build keywords with pre-computed data in single pass
     const keywordArray: Keyword[] = Array.from(frequencies.entries())
       .map(([word, frequency]) => ({
         word,
         frequency,
-        density: frequency / words.length,
-        importance: this.calculateWordImportance(word, frequency, words.length),
-        position: this.findWordPositions(word, text),
+        density: frequency / totalWords,
+        importance: this.calculateWordImportance(word, frequency, totalWords),
+        position: positions.get(word) || [], // Use pre-computed positions
       }))
       .sort((a, b) => b.importance - a.importance);
 
@@ -405,19 +412,6 @@ export class ContentMetricsAnalyzer implements Analyzer {
     return density * lengthBonus * frequencyBonus;
   }
 
-  private findWordPositions(word: string, text: string): number[] {
-    const positions: number[] = [];
-    const lowerText = text.toLowerCase();
-    const lowerWord = word.toLowerCase();
-
-    let index = 0;
-    while ((index = lowerText.indexOf(lowerWord, index)) !== -1) {
-      positions.push(index);
-      index += word.length;
-    }
-
-    return positions;
-  }
 
   private createTopicClusters(keywords: Keyword[]): TopicCluster[] {
     // Simple clustering based on co-occurrence
