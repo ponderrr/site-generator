@@ -2,6 +2,8 @@ import { URL } from 'url';
 import * as cheerio from 'cheerio';
 import { logger } from '@site-generator/core';
 import type { ExtractionOptions } from './extractor';
+import { isIP } from 'net';
+import { lookup } from 'dns/promises';
 
 export interface HtmlParseResult {
   success: boolean;
@@ -50,7 +52,7 @@ export class HtmlParser {
       }
 
       // Validate URL to prevent SSRF attacks
-      this.validateUrl(url);
+      await this.validateUrl(url);
 
       logger.info(`Fetching HTML from ${url}`, { url });
 
@@ -272,7 +274,7 @@ export class HtmlParser {
   /**
    * Validate URL to prevent SSRF attacks
    */
-  private validateUrl(url: string): void {
+  private async validateUrl(url: string): Promise<void> {
     try {
       const parsed = new URL(url);
       
@@ -281,7 +283,6 @@ export class HtmlParser {
         throw new Error(`Invalid protocol: ${parsed.protocol}`);
       }
       
-      // Block private IP ranges
       const hostname = parsed.hostname;
       const privateRanges = [
         /^127\./,
@@ -291,15 +292,32 @@ export class HtmlParser {
         /^169\.254\./,
         /^localhost$/i
       ];
-      
-      if (privateRanges.some(pattern => pattern.test(hostname))) {
-        throw new Error('Cannot fetch from private IP range');
-      }
-      
-      // Block metadata endpoints
       const blockedHosts = ['169.254.169.254', 'metadata.google.internal'];
-      if (blockedHosts.includes(hostname)) {
-        throw new Error('Blocked metadata endpoint');
+
+      if (privateRanges.some(pattern => pattern.test(hostname)) || blockedHosts.includes(hostname)) {
+        throw new Error('Cannot fetch from private or metadata host');
+      }
+
+      const lookupResult = await lookup(hostname, { family: 0 });
+      const { address } = lookupResult;
+      const ipType = isIP(address);
+
+      if (ipType === 0) {
+        throw new Error('Unable to resolve host');
+      }
+
+      const isPrivate =
+        address.startsWith('10.') ||
+        address.startsWith('172.') && /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(address) ||
+        address.startsWith('192.168.') ||
+        address.startsWith('169.254.') ||
+        address === '127.0.0.1' ||
+        address === '::1' ||
+        address.startsWith('fc') ||
+        address.startsWith('fd');
+
+      if (isPrivate) {
+        throw new Error('Cannot fetch from private IP range');
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

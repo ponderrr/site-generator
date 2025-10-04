@@ -14,16 +14,16 @@ vi.mock('path', () => ({
 // Mock Piscina - match actual API behavior
 vi.mock('piscina', () => ({
   default: vi.fn().mockImplementation(() => ({
-    run: vi.fn().mockResolvedValue({
+    run: vi.fn().mockImplementation((task) => Promise.resolve({
       // Piscina returns the result directly, not wrapped in success/error
-      url: 'https://example.com/test',
+      url: task.url || 'https://example.com/test',
       pageType: 'home',
       confidence: 0.8,
       contentMetrics: {},
       sections: [],
       analysisTime: 100,
       metadata: {}
-    }),
+    })),
     destroy: vi.fn().mockResolvedValue(undefined),
     threads: [{ id: 1 }, { id: 2 }],
     queueSize: 0,

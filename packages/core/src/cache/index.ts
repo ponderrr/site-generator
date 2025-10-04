@@ -44,12 +44,14 @@ export class EnhancedLRUCache<T = any> {
       allowStale: defaultOptions.allowStale,
       // Add proper size calculation for memory management
       sizeCalculation: (value: CacheEntry<T>, key: string) => {
-        return JSON.stringify(value).length + key.length;
+        return Math.max(1, value.size || 1);
       },
-      maxSize: 100 * 1024 * 1024, // 100MB limit
+      maxSize: defaultOptions.maxSize * 1024, // Convert KB to bytes, respect user config
       dispose: (value: CacheEntry<T>, key: string, reason: string) => {
-        // Cleanup logic when items are evicted
-        console.debug(`Cache evicted key: ${key}, reason: ${reason}`);
+        // Cleanup logic when items are evicted - only log in development
+        if (process.env.NODE_ENV === 'development') {
+          console.debug(`Cache evicted key: ${key}, reason: ${reason}`);
+        }
       }
     });
 

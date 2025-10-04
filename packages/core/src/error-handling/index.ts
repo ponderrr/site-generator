@@ -162,6 +162,11 @@ export class ErrorHandler {
 
     const resetTimeout = 60000; // 1 minute
     
+    // Clear any existing reset timeout before scheduling a new one
+    if (breaker.resetTimeout) {
+      clearTimeout(breaker.resetTimeout);
+    }
+
     breaker.resetTimeout = setTimeout(() => {
       const currentBreaker = this.circuitBreakers.get(component);
       if (currentBreaker && currentBreaker.state === 'open') {

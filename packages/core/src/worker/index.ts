@@ -58,10 +58,9 @@ function resolveWorkerPath(workerFileName: string): string {
     // Production path (relative to dist)
     path.resolve(__dirname, '../workers', workerFileName),
     // Absolute path if provided
-    workerFileName.startsWith('/') ? workerFileName : null,
-    // Package-relative path
-    path.resolve(process.cwd(), 'packages/core/src/workers', workerFileName),
-    path.resolve(process.cwd(), 'packages/core/dist/workers', workerFileName)
+    path.isAbsolute(workerFileName) ? workerFileName : null,
+    // Additional fallback: two levels up from current location
+    path.resolve(__dirname, '../../workers', workerFileName)
   ].filter(Boolean) as string[];
 
   for (const workerPath of possiblePaths) {
@@ -86,7 +85,7 @@ export class WorkerPool extends EventEmitter {
 
     // Resolve worker file path with robust fallback strategy
     const defaultWorkerFile = options.workerFile || 'base-worker.js';
-    const resolvedWorkerFile = defaultWorkerFile.includes('/') 
+    const resolvedWorkerFile = path.isAbsolute(defaultWorkerFile) || defaultWorkerFile.includes(path.sep)
       ? defaultWorkerFile 
       : resolveWorkerPath(defaultWorkerFile);
 
