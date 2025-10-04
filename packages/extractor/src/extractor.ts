@@ -8,6 +8,8 @@ import { MarkdownConverter } from './markdown-converter';
 import { MediaExtractor } from './media-extractor';
 import { UrlNormalizer } from './url-normalizer';
 import { ContentFilter } from './content-filter';
+import { JSDOM } from 'jsdom';
+import createDOMPurify from 'dompurify';
 
 export interface ExtractionOptions {
   extractImages?: boolean;
@@ -18,6 +20,7 @@ export interface ExtractionOptions {
   removeAds?: boolean;
   removeNavigation?: boolean;
   maxContentLength?: number;
+  maxConcurrency?: number;
   timeout?: number;
   userAgent?: string;
   followRedirects?: boolean;
@@ -97,6 +100,7 @@ export class ContentExtractor extends EventEmitter {
   private activeExtractions: Set<string> = new Set();
   private abortController?: AbortController;
   private defaultOptions: ExtractionOptions;
+  private domPurify: ReturnType<typeof createDOMPurify>;
 
   constructor(options: ExtractionOptions = {}) {
     super();
@@ -122,6 +126,10 @@ export class ContentExtractor extends EventEmitter {
 
     // Configure turndown rules
     this.configureTurndown();
+
+    // Initialize DOMPurify for HTML sanitization
+    const window = new JSDOM('').window;
+    this.domPurify = createDOMPurify(window);
   }
 
   /**
@@ -158,15 +166,15 @@ export class ContentExtractor extends EventEmitter {
 
       // Extract metadata
       this.emit('extraction-progress', normalizedUrl, 50);
-      const metadata = this.extractMetadata(htmlContent.html, normalizedUrl);
+      const metadata = this.extractMetadata(htmlContent.html!, normalizedUrl);
 
       // Convert to markdown
       this.emit('extraction-progress', normalizedUrl, 75);
-      const markdown = this.markdownConverter.convert(htmlContent.html);
+      const markdown = this.markdownConverter.convert(htmlContent.html!);
 
       // Extract media and links
-      const images = this.mediaExtractor.extractImages(htmlContent.html);
-      const links = this.mediaExtractor.extractLinks(htmlContent.html);
+      const images = this.mediaExtractor.extractImages(htmlContent.html!);
+      const links = this.mediaExtractor.extractLinks(htmlContent.html!);
 
       // Filter content
       let filteredMarkdown = this.contentFilter.filter(markdown);
@@ -177,19 +185,19 @@ export class ContentExtractor extends EventEmitter {
       }
 
       // Extract structured data
-      const tables = this.extractTables(htmlContent.html);
-      const codeBlocks = this.extractCodeBlocks(htmlContent.html);
+      const tables = this.extractTables(htmlContent.html!);
+      const codeBlocks = this.extractCodeBlocks(htmlContent.html!);
 
       // Calculate metrics
-      const text = this.extractText(htmlContent.html);
+      const text = this.extractText(htmlContent.html!);
       const wordCount = this.countWords(text);
       const readingTime = Math.ceil(wordCount / 200); // 200 words per minute
 
       const content: ExtractedContent = {
         url: normalizedUrl,
-        title: metadata.title || 'Untitled',
+        title: metadata['title'] || 'Untitled',
         markdown: filteredMarkdown,
-        html: htmlContent.html,
+        html: this.sanitizeHtml(htmlContent.html!),
         text,
         metadata,
         images,
@@ -297,7 +305,7 @@ export class ContentExtractor extends EventEmitter {
    */
   queueExtraction(url: string, options?: ExtractionOptions): void {
     const normalizedUrl = this.urlNormalizer.normalize(url);
-    this.extractionQueue.push({ url: normalizedUrl, options });
+    this.extractionQueue.push({ url: normalizedUrl, options: options || {} });
     logger.info(`Queued extraction for ${normalizedUrl}`, { url: normalizedUrl });
   }
 
@@ -336,10 +344,10 @@ export class ContentExtractor extends EventEmitter {
   private configureTurndown(): void {
     // Add custom rules for better markdown conversion
     this.turndownService.addRule('codeBlocks', {
-      filter: (node) => {
+      filter: (node: any) => {
         return node.nodeName === 'PRE' && node.firstChild?.nodeName === 'CODE';
       },
-      replacement: (content, node) => {
+      replacement: (content: any, node: any) => {
         const codeElement = node.firstChild as Element;
         const language = codeElement.getAttribute('class')?.replace('language-', '') || '';
         return `\`\`\`${language}\n${content}\n\`\`\``;
@@ -348,7 +356,7 @@ export class ContentExtractor extends EventEmitter {
 
     this.turndownService.addRule('tables', {
       filter: 'table',
-      replacement: (content, node) => {
+      replacement: (content: any, node: any) => {
         // Let the markdown converter handle tables
         return content;
       }
@@ -379,23 +387,23 @@ export class ContentExtractor extends EventEmitter {
                 $('title').text().trim();
     // Remove any HTML tags that leaked through due to malformed HTML
     title = title.replace(/<[^>]*>/g, '').trim();
-    metadata.title = title;
+    metadata['title'] = title;
 
     // Extract description
-    if (!metadata.description) {
-      metadata.description = $('meta[name="description"]').attr('content') ||
+    if (!metadata['description']) {
+      metadata['description'] = $('meta[name="description"]').attr('content') ||
                            $('meta[property="og:description"]').attr('content') || '';
     }
 
     // Extract author
-    if (!metadata.author) {
-      metadata.author = $('meta[name="author"]').attr('content') ||
+    if (!metadata['author']) {
+      metadata['author'] = $('meta[name="author"]').attr('content') ||
                        $('meta[property="article:author"]').attr('content') || '';
     }
 
     // Extract published date
-    if (!metadata.published) {
-      metadata.published = $('meta[property="article:published_time"]').attr('content') ||
+    if (!metadata['published']) {
+      metadata['published'] = $('meta[property="article:published_time"]').attr('content') ||
                           $('time[datetime]').attr('datetime') || '';
     }
 
@@ -403,7 +411,7 @@ export class ContentExtractor extends EventEmitter {
     const jsonLd = $('script[type="application/ld+json"]').html();
     if (jsonLd) {
       try {
-        metadata.structuredData = JSON.parse(jsonLd);
+        metadata['structuredData'] = JSON.parse(jsonLd);
       } catch (e) {
         // Ignore invalid JSON-LD
       }
@@ -467,7 +475,7 @@ export class ContentExtractor extends EventEmitter {
       codeBlocks.push({
         language,
         code,
-        file: $(codeElement).attr('data-file') || undefined
+        ...(($(codeElement).attr('data-file')) && { file: $(codeElement).attr('data-file')! })
       });
     });
 
@@ -495,6 +503,18 @@ export class ContentExtractor extends EventEmitter {
    */
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Sanitize HTML content using DOMPurify
+   */
+  private sanitizeHtml(html: string): string {
+    return this.domPurify.sanitize(html, {
+      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 
+                     'ul', 'ol', 'li', 'a', 'img', 'table', 'tr', 'td', 'th', 'code', 'pre', 'blockquote'],
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class'],
+      ALLOW_DATA_ATTR: false
+    });
   }
 }
 

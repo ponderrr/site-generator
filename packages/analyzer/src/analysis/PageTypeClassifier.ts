@@ -1,4 +1,4 @@
-import {
+import type {
   Analyzer,
   ExtractedPage,
   ClassificationResult,
@@ -272,19 +272,19 @@ export class PageTypeClassifier implements Analyzer {
     const features: number[] = [];
 
     // Has title
-    features.push(frontmatter.title ? 1 : 0);
+    features.push(frontmatter['title'] ? 1 : 0);
 
     // Has description
-    features.push(frontmatter.description ? 1 : 0);
+    features.push(frontmatter['description'] ? 1 : 0);
 
     // Has keywords
-    features.push(frontmatter.keywords && Array.isArray(frontmatter.keywords) && frontmatter.keywords.length > 0 ? 1 : 0);
+    features.push(frontmatter['keywords'] && Array.isArray(frontmatter['keywords']) && frontmatter['keywords'].length > 0 ? 1 : 0);
 
     // Has author
-    features.push(frontmatter.author ? 1 : 0);
+    features.push(frontmatter['author'] ? 1 : 0);
 
     // Content type
-    const contentType = frontmatter.contentType || 'page';
+    const contentType = frontmatter['contentType'] || 'page';
     const typeFeatures = this.oneHotEncode(contentType, ['page', 'blog-post', 'documentation', 'product']);
     features.push(...typeFeatures);
 
@@ -316,18 +316,18 @@ export class PageTypeClassifier implements Analyzer {
       let score = 0.1; // Base score
 
       // URL pattern matching (strong signal)
-      if (features[0] > 0.8) score += 0.4; // Long URLs often indicate documentation
-      if (features[1] > 0.6) score += 0.3; // Many path segments suggest complex structure
-      if (features[2] > 0.5) score += 0.2; // Query parameters suggest dynamic content
+      if (features[0]! > 0.8) score += 0.4; // Long URLs often indicate documentation
+      if (features[1]! > 0.6) score += 0.3; // Many path segments suggest complex structure
+      if (features[2]! > 0.5) score += 0.2; // Query parameters suggest dynamic content
 
       // Content structure (medium signal)
-      if (features[5] > 0.4) score += 0.3; // Many headings suggest structured content
-      if (features[6] > 0.3) score += 0.25; // Many links suggest reference material
-      if (features[7] > 0.2) score += 0.2; // Code blocks suggest technical content
+      if (features[5]! > 0.4) score += 0.3; // Many headings suggest structured content
+      if (features[6]! > 0.3) score += 0.25; // Many links suggest reference material
+      if (features[7]! > 0.2) score += 0.2; // Code blocks suggest technical content
 
       // Metadata (medium signal)
-      if (features[12] > 0.5) score += 0.2; // Has description suggests well-structured content
-      if (features[13] > 0.5) score += 0.15; // Has keywords suggests SEO optimization
+      if (features[12]! > 0.5) score += 0.2; // Has description suggests well-structured content
+      if (features[13]! > 0.5) score += 0.15; // Has keywords suggests SEO optimization
 
       // Add some randomness but cap at reasonable levels
       score += Math.random() * 0.1;

@@ -1,7 +1,7 @@
 import TurndownService from 'turndown';
 import * as cheerio from 'cheerio';
 import { logger } from '@site-generator/core';
-import { ExtractionOptions } from './extractor';
+import type { ExtractionOptions } from './extractor';
 
 export class MarkdownConverter {
   private turndownService: TurndownService;
@@ -126,7 +126,7 @@ export class MarkdownConverter {
     // Handle tables
     this.turndownService.addRule('tables', {
       filter: 'table',
-      replacement: (content, node) => {
+      replacement: (content: any, node: any) => {
         const element = node as Element;
         const $ = cheerio.load(element.outerHTML);
         const rows: string[][] = [];
@@ -149,14 +149,14 @@ export class MarkdownConverter {
         const colCount = Math.max(...rows.map(r => r.length));
         
         // Add header row
-        markdown += '| ' + rows[0].join(' | ') + ' |\n';
+        markdown += '| ' + (rows[0] || []).join(' | ') + ' |\n';
         
         // Add separator
         markdown += '| ' + Array(colCount).fill('---').join(' | ') + ' |\n';
         
         // Add data rows
         for (let i = 1; i < rows.length; i++) {
-          markdown += '| ' + rows[i].join(' | ') + ' |\n';
+          markdown += '| ' + (rows[i] || []).join(' | ') + ' |\n';
         }
         
         return markdown + '\n';
@@ -165,10 +165,10 @@ export class MarkdownConverter {
 
     // Handle code blocks with language
     this.turndownService.addRule('codeBlocks', {
-      filter: (node) => {
+      filter: (node: any) => {
         return node.nodeName === 'PRE' && node.firstChild?.nodeName === 'CODE';
       },
-      replacement: (content, node) => {
+      replacement: (content: any, node: any) => {
         const codeElement = node.firstChild as Element;
         const language = codeElement.getAttribute('class')?.replace('language-', '') || '';
         return `\`\`\`${language}\n${content}\n\`\`\``;
@@ -178,7 +178,7 @@ export class MarkdownConverter {
     // Handle images with alt text
     this.turndownService.addRule('images', {
       filter: 'img',
-      replacement: (content, node) => {
+      replacement: (content: any, node: any) => {
         const element = node as Element;
         const alt = element.getAttribute('alt') || '';
         const src = element.getAttribute('src') || '';
@@ -199,7 +199,7 @@ export class MarkdownConverter {
     // Handle headings
     this.turndownService.addRule('headings', {
       filter: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
-      replacement: (content, node) => {
+      replacement: (content: any, node: any) => {
         const level = parseInt(node.nodeName.charAt(1));
         return `${'#'.repeat(level)} ${content}`;
       }

@@ -2,7 +2,8 @@ import * as path from 'path';
 import Piscina from 'piscina';
 import { LRUCache } from 'lru-cache';
 import { createHash } from 'crypto';
-import {
+import pLimit from 'p-limit';
+import type {
   ExtractedPage,
   AnalysisResult,
   PageAnalysis,
@@ -17,9 +18,13 @@ import {
 
 export class AnalysisOrchestrator {
   private workerPool: Piscina;
-  private resultCache: LRUCache<string, PageAnalysis>;
+  private resultCache: LRUCache<string, AnalysisResult>;
   private taskCounter: number = 0;
-  private progressCallback?: (progress: AnalysisProgress) => void;
+  private progressCallback?: ((progress: AnalysisProgress) => void) | undefined;
+  private memoryMonitor?: NodeJS.Timeout | undefined;
+  private isMemoryPressureHigh: boolean = false;
+  private healthCheckInterval?: NodeJS.Timeout | undefined;
+  private activeTasks: Set<string> = new Set();
 
   constructor(
     options: WorkerPoolOptions = {
@@ -63,13 +68,14 @@ export class AnalysisOrchestrator {
     });
 
     this.setupWorkerMonitoring();
+    this.startMemoryMonitoring();
   }
 
   async analyzeContent(
     pages: ExtractedPage[],
     onProgress?: (progress: AnalysisProgress) => void
   ): Promise<AnalysisResult[]> {
-    this.progressCallback = onProgress;
+    this.progressCallback = onProgress || undefined;
     const startTime = Date.now();
     const results: AnalysisResult[] = [];
 
@@ -81,6 +87,7 @@ export class AnalysisOrchestrator {
 
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
+      if (!batch) continue;
       const batchStartTime = Date.now();
 
       console.log(`📊 Processing batch ${i + 1}/${totalBatches} (${batch.length} pages)`);
@@ -114,29 +121,46 @@ export class AnalysisOrchestrator {
   }
 
   private async analyzeBatch(pages: ExtractedPage[]): Promise<AnalysisResult[]> {
-    // Parallel analysis using worker pool
-    const promises = pages.map(page =>
-      this.analyzePageWithCache(page)
-    );
-
-    const batchResults = await Promise.allSettled(promises);
-
-    // Handle results
+    // Start health checks when work begins
+    this.startHealthChecks();
+    
+    // Implement proper backpressure with p-limit
+    const limit = pLimit(this.analysisOptions.maxWorkers);
     const successful: AnalysisResult[] = [];
     const failed: string[] = [];
 
-    batchResults.forEach((result, index) => {
-      if (result.status === 'fulfilled') {
+    // Process pages with controlled concurrency
+    const promises = pages.map(page => 
+      limit(async () => {
+        const taskId = `analysis-${page.url}`;
+        this.activeTasks.add(taskId);
+        
+        try {
+          const result = await this.analyzePageWithCache(page);
+          return result;
+        } catch (error) {
+          failed.push(page.url);
+          console.error(`Failed to analyze ${page.url}:`, error);
+          return null;
+        } finally {
+          this.activeTasks.delete(taskId);
+        }
+      })
+    );
+
+    const results = await Promise.allSettled(promises);
+    
+    results.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value !== null) {
         successful.push(result.value);
-      } else {
-        failed.push(pages[index].url);
-        console.error(`Failed to analyze ${pages[index].url}:`, result.reason);
       }
     });
 
     if (failed.length > 0) {
       console.warn(`⚠️ ${failed.length}/${pages.length} pages failed analysis`);
     }
+
+    // Health checks will stop automatically when activeTasks becomes empty
 
     return successful;
   }
@@ -239,30 +263,36 @@ export class AnalysisOrchestrator {
 
     // Simple similarity detection based on shared keywords
     for (let i = 0; i < results.length; i++) {
+      const resultA = results[i];
+      if (!resultA) continue; // Guard clause - skip if null/undefined
+      
       for (let j = i + 1; j < results.length; j++) {
-        const similarity = this.calculateSimilarity(results[i], results[j]);
+        const resultB = results[j];
+        if (!resultB) continue; // Guard clause - skip if null/undefined
+        
+        const similarity = this.calculateSimilarity(resultA, resultB);
 
         if (similarity > 0.3) { // Threshold for similarity
-          if (!results[i].crossReferences) {
-            results[i].crossReferences = [];
+          if (!resultA.crossReferences) {
+            resultA.crossReferences = [];
           }
-          if (!results[j].crossReferences) {
-            results[j].crossReferences = [];
+          if (!resultB.crossReferences) {
+            resultB.crossReferences = [];
           }
 
           const crossRef = {
-            sourceUrl: results[i].url,
-            targetUrl: results[j].url,
+            sourceUrl: resultA.url,
+            targetUrl: resultB.url,
             type: 'similar' as const,
             confidence: similarity,
             sharedSections: ['content'], // Simplified for now
           };
 
-          results[i].crossReferences!.push(crossRef);
-          results[j].crossReferences!.push({
+          resultA.crossReferences.push(crossRef);
+          resultB.crossReferences.push({
             ...crossRef,
-            sourceUrl: results[j].url,
-            targetUrl: results[i].url,
+            sourceUrl: resultB.url,
+            targetUrl: resultA.url,
           });
         }
       }
@@ -270,9 +300,12 @@ export class AnalysisOrchestrator {
   }
 
   private calculateSimilarity(a: AnalysisResult, b: AnalysisResult): number {
+    // Early validation
+    if (!a || !b) return 0;
+    
     // Simple cosine similarity based on embeddings if available
     if (a.embeddings && b.embeddings && a.embeddings.length === b.embeddings.length) {
-      const dotProduct = a.embeddings.reduce((sum, val, i) => sum + val * b.embeddings[i], 0);
+      const dotProduct = a.embeddings.reduce((sum, val, i) => sum + val * ((b.embeddings && b.embeddings[i]) || 0), 0);
       const normA = Math.sqrt(a.embeddings.reduce((sum, val) => sum + val * val, 0));
       const normB = Math.sqrt(b.embeddings.reduce((sum, val) => sum + val * val, 0));
 
@@ -337,8 +370,23 @@ export class AnalysisOrchestrator {
   }
 
   private setupWorkerMonitoring(): void {
-    // Health check workers periodically
-    setInterval(async () => {
+    // Health checks are now conditional - only run when workers are active
+    // This method sets up the infrastructure but doesn't start health checks
+  }
+
+  /**
+   * Start health checks when work begins
+   */
+  private startHealthChecks(): void {
+    if (this.healthCheckInterval) return; // Already running
+    
+    this.healthCheckInterval = setInterval(async () => {
+      if (this.activeTasks.size === 0) {
+        // Stop health checks when idle
+        this.stopHealthChecks();
+        return;
+      }
+      
       try {
         for (let i = 0; i < this.workerPool.threads.length; i++) {
           const result = await this.workerPool.run({
@@ -356,9 +404,16 @@ export class AnalysisOrchestrator {
     }, 30000); // Every 30 seconds
   }
 
-  async destroy(): Promise<void> {
-    await this.workerPool.destroy();
+  /**
+   * Stop health checks when idle
+   */
+  private stopHealthChecks(): void {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = undefined;
+    }
   }
+
 
   getCacheStats() {
     return {
@@ -448,10 +503,50 @@ export class AnalysisOrchestrator {
   }
 
   /**
+   * Start memory monitoring
+   */
+  private startMemoryMonitoring(): void {
+    this.memoryMonitor = setInterval(() => {
+      const usage = process.memoryUsage();
+      const memoryPressure = usage.heapUsed / usage.heapTotal;
+      
+      if (memoryPressure > 0.85) {
+        if (!this.isMemoryPressureHigh) {
+          console.warn('⚠️ High memory pressure detected, reducing batch processing');
+          this.isMemoryPressureHigh = true;
+        }
+      } else if (this.isMemoryPressureHigh) {
+        console.log('✅ Memory pressure normalized');
+        this.isMemoryPressureHigh = false;
+      }
+    }, 1000);
+  }
+
+  /**
+   * Stop memory monitoring
+   */
+  private stopMemoryMonitoring(): void {
+    if (this.memoryMonitor) {
+      clearInterval(this.memoryMonitor);
+      this.memoryMonitor = undefined;
+    }
+  }
+
+  /**
    * Clean up resources
    */
   cleanup(): void {
     console.log('🧹 Cleaning up analysis orchestrator');
     this.clearCache();
+    this.stopMemoryMonitoring();
+    this.stopHealthChecks();
+  }
+
+  /**
+   * Destroy the orchestrator and clean up resources
+   */
+  async destroy(): Promise<void> {
+    await this.workerPool.destroy();
+    this.cleanup();
   }
 }

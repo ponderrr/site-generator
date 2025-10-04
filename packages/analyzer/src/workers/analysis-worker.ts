@@ -12,7 +12,8 @@ export interface AnalysisWorkerData {
   };
 }
 
-export default async function analysisWorker(data: AnalysisWorkerData): Promise<AnalysisWorkerResult> {
+// Piscina expects CommonJS module.exports format
+module.exports = async function analysisWorker(data: AnalysisWorkerData): Promise<AnalysisWorkerResult> {
   const { task, options } = data;
   const startTime = Date.now();
 
@@ -97,20 +98,25 @@ export default async function analysisWorker(data: AnalysisWorkerData): Promise<
 
     analysis.analysisTime = Date.now() - startTime;
 
+    // Return proper AnalysisWorkerResult contract
     return {
       success: true,
-      result: analysis
-    };
+      result: analysis,
+      taskId: task.taskId,
+      duration: Date.now() - startTime
+    } as AnalysisWorkerResult;
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-
+    
     return {
       success: false,
-      error: errorMessage
-    };
+      error: errorMessage,
+      taskId: task.taskId,
+      duration: Date.now() - startTime
+    } as AnalysisWorkerResult;
   }
-}
+};
 
 /**
  * Extract related topics from multiple pages

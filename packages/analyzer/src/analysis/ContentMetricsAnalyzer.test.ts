@@ -61,7 +61,7 @@ describe('ContentMetricsAnalyzer', () => {
       const page: ExtractedPage = {
         url: 'https://example.com/complex',
         title: 'Complex Content',
-        markdown: `# Header\n\nThis is a paragraph with **bold** text and *italic* text.\n\n- List item 1\n- List item 2\n\n\`\`\`\nconsole.log('code block');\n\`\`\`\n\n[Link text](https://example.com)`,
+        markdown: `# Header\n\nThis is a paragraph with **bold** text and *italic* text.\n\n- List item 1\n  - Nested item 1\n  - Nested item 2\n- List item 2\n\n\`\`\`\nconsole.log('code block');\n\`\`\`\n\n[Link text](https://example.com)`,
         frontmatter: {}
       };
 

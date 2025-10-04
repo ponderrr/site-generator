@@ -1,4 +1,4 @@
-import {
+import type {
   Analyzer,
   ExtractedPage,
   Section,
@@ -167,7 +167,7 @@ export class SectionDetector implements Analyzer {
     let inCodeBlock = false;
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+      const line = lines[i]?.trim() || '';
 
       // Track code blocks
       if (line.startsWith('```')) {
@@ -180,7 +180,7 @@ export class SectionDetector implements Analyzer {
 
       // Headings
       const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
-      if (headingMatch) {
+      if (headingMatch && headingMatch[1] && headingMatch[2]) {
         if (currentElement) {
           structure.push(currentElement);
         }
@@ -327,7 +327,7 @@ export class SectionDetector implements Analyzer {
     const sortedScores = Array.from(scores.entries())
       .sort((a, b) => b[1] - a[1]);
 
-    let bestMatch = sortedScores[0];
+    let bestMatch = sortedScores[0] || ['content', 0.1];
 
     // If the best match has low confidence, check if this should be content
     if (bestMatch[1] < 0.3) {

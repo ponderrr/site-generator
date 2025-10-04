@@ -41,7 +41,18 @@ export class EnhancedLRUCache<T = any> {
       ttl: defaultOptions.ttl,
       updateAgeOnGet: defaultOptions.updateAgeOnGet,
       updateAgeOnHas: defaultOptions.updateAgeOnHas,
-      allowStale: defaultOptions.allowStale
+      allowStale: defaultOptions.allowStale,
+      // Add proper size calculation for memory management
+      sizeCalculation: (value: CacheEntry<T>, key: string) => {
+        return Math.max(1, value.size || 1);
+      },
+      maxSize: defaultOptions.maxSize * 1024, // Convert KB to bytes, respect user config
+      dispose: (value: CacheEntry<T>, key: string, reason: string) => {
+        // Cleanup logic when items are evicted - only log in development
+        if (process.env.NODE_ENV === 'development') {
+          console.debug(`Cache evicted key: ${key}, reason: ${reason}`);
+        }
+      }
     });
 
     this.stats = {

@@ -1,11 +1,32 @@
 import * as cheerio from 'cheerio';
 import { logger } from '@site-generator/core';
-import { ExtractionOptions } from './extractor';
+import type { ExtractionOptions } from './extractor';
 
 export class ContentFilter {
   private stopWords: Set<string>;
   private minWordLength: number = 3;
   private maxWordLength: number = 50;
+
+  // Static regex patterns to avoid recompilation on every call
+  private static readonly UNWANTED_SECTION_PATTERNS = [
+    /##\s*(?:advertisement|ad|sponsor|promotion)/gi,
+    /##\s*(?:comment|discussion)/gi,
+    /##\s*(?:related|see also)/gi,
+    /##\s*(?:tag|category|archive)/gi
+  ] as const;
+
+  private static readonly BOILERPLATE_PATTERNS = [
+    /©\s+\d{4}.*/gi,
+    /all rights reserved/gi,
+    /privacy policy/gi,
+    /terms of service/gi,
+    /cookie policy/gi,
+    /back to top/gi,
+    /print this page/gi,
+    /share this/gi,
+    /follow us/gi,
+    /subscribe/gi
+  ] as const;
 
   constructor(private options: ExtractionOptions) {
     this.stopWords = new Set([
@@ -80,39 +101,19 @@ export class ContentFilter {
   }
 
   private removeUnwantedSections(markdown: string): string {
-    const sectionsToRemove = [
-      /##\s*(?:advertisement|ad|sponsor|promotion)/gi,
-      /##\s*(?:comment|discussion)/gi,
-      /##\s*(?:related|see also)/gi,
-      /##\s*(?:tag|category|archive)/gi
-    ];
-
-    for (const pattern of sectionsToRemove) {
-      markdown = markdown.replace(pattern, '');
+    let result = markdown;
+    for (const pattern of ContentFilter.UNWANTED_SECTION_PATTERNS) {
+      result = result.replace(pattern, '');
     }
-
-    return markdown;
+    return result;
   }
 
   private removeBoilerplate(markdown: string): string {
-    const boilerplatePatterns = [
-      /©\s+\d{4}.*/gi,
-      /all rights reserved/gi,
-      /privacy policy/gi,
-      /terms of service/gi,
-      /cookie policy/gi,
-      /back to top/gi,
-      /print this page/gi,
-      /share this/gi,
-      /follow us/gi,
-      /subscribe/gi
-    ];
-
-    for (const pattern of boilerplatePatterns) {
-      markdown = markdown.replace(pattern, '');
+    let result = markdown;
+    for (const pattern of ContentFilter.BOILERPLATE_PATTERNS) {
+      result = result.replace(pattern, '');
     }
-
-    return markdown;
+    return result;
   }
 
   private cleanFormatting(markdown: string): string {

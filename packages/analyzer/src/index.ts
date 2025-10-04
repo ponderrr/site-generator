@@ -14,7 +14,7 @@ export { SectionDetector } from './analysis/SectionDetector';
 export * from './types/analysis.types';
 
 // Export worker
-export { default as AnalysisWorker } from './workers/analysis-worker';
+export * from './workers/analysis-worker';
 
 // Re-export everything from analysis module
 export * from './analysis';

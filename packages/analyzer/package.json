@@ -18,7 +18,8 @@
     "mdast-util-to-string": "^4.0.0",
     "natural": "^6.12.0",
     "ml-kmeans": "^6.0.0",
-    "vectordb": "^0.4.9"
+    "vectordb": "^0.4.9",
+    "p-limit": "^4.0.0"
   },
   "devDependencies": {
     "tsup": "^8.0.0",
