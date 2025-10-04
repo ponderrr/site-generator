@@ -98,13 +98,23 @@ module.exports = async function analysisWorker(data: AnalysisWorkerData): Promis
 
     analysis.analysisTime = Date.now() - startTime;
 
-    // Piscina returns the result directly, not wrapped in success/error
-    return analysis;
+    // Return proper AnalysisWorkerResult contract
+    return {
+      success: true,
+      result: analysis,
+      taskId: task.taskId,
+      duration: Date.now() - startTime
+    } as AnalysisWorkerResult;
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    // For Piscina, we should throw the error rather than returning it
-    throw new Error(`Analysis worker failed: ${errorMessage}`);
+    
+    return {
+      success: false,
+      error: errorMessage,
+      taskId: task.taskId,
+      duration: Date.now() - startTime
+    } as AnalysisWorkerResult;
   }
 };
 

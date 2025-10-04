@@ -1,4 +1,4 @@
-import {
+import type {
   Analyzer,
   ExtractedPage,
   ContentMetrics,
@@ -53,7 +53,7 @@ export class ContentMetricsAnalyzer implements Analyzer {
         density,
         structure,
       }),
-      keywordsArray: keywords.keywordsArray,
+      keywordsArray: keywords.mainKeywords?.map(k => k.word) || [],
     };
   }
 
@@ -142,7 +142,7 @@ export class ContentMetricsAnalyzer implements Analyzer {
     let previousWasVowel = false;
 
     for (let i = 0; i < word.length; i++) {
-      const isVowel = vowels.includes(word[i]);
+      const isVowel = vowels.includes(word[i] || '');
       if (isVowel && !previousWasVowel) {
         syllableCount++;
       }
@@ -175,10 +175,10 @@ export class ContentMetricsAnalyzer implements Analyzer {
     let totalNegative = 0;
     let totalNeutral = 0;
 
-    const sentenceSentiments: any[] = [];
+    const sentenceSentiments: Array<{ text: string; score: number; magnitude: number }> = [];
 
     for (const sentence of sentences) {
-      const sentiment = this.analyzeSentenceSentiment(sentence);
+      const sentiment = this.analyzeSentenceSentiment(sentence || '');
       sentenceSentiments.push({
         text: sentence,
         score: sentiment.score,
@@ -324,7 +324,7 @@ export class ContentMetricsAnalyzer implements Analyzer {
 
     for (const line of lines) {
       const match = line.match(/^(\s*)[-*+]\s/);
-      if (match) {
+      if (match && match[1]) {
         const depth = Math.floor(match[1].length / 2) + 1;
         maxDepth = Math.max(maxDepth, depth);
       }
@@ -337,35 +337,36 @@ export class ContentMetricsAnalyzer implements Analyzer {
     const buckets = [0, 0, 0, 0, 0]; // <10, 10-25, 26-50, 51-100, >100
 
     for (const value of values) {
-      if (value < 10) buckets[0]++;
-      else if (value < 25) buckets[1]++;
-      else if (value < 50) buckets[2]++;
-      else if (value < 100) buckets[3]++;
-      else buckets[4]++;
+      if (value < 10) buckets[0]!++;
+      else if (value < 25) buckets[1]!++;
+      else if (value < 50) buckets[2]!++;
+      else if (value < 100) buckets[3]!++;
+      else buckets[4]!++;
     }
 
     return buckets.map(b => b / Math.max(values.length, 1));
   }
 
   private async extractKeywords(text: string): Promise<KeywordAnalysis> {
-    // Single-pass streaming approach for better performance
+    // Single-pass streaming approach for better performance with character offsets
     const frequencies = new Map<string, number>();
     const positions = new Map<string, number[]>();
     
-    // Single tokenization pass with immediate processing
-    const words = text.toLowerCase()
-      .split(/\s+/)
-      .map(w => w.replace(/[^\w\u4e00-\u9fff\$\+\-\*\/\=\^\(\)]/g, ''))
-      .filter(w => w.length > 1 && /[a-zA-Z0-9\u4e00-\u9fff]/.test(w) && !this.isStopWord(w));
-    
-    // Single iteration to build both frequency and position maps
-    words.forEach((word, index) => {
-      frequencies.set(word, (frequencies.get(word) || 0) + 1);
-      if (!positions.has(word)) positions.set(word, []);
-      positions.get(word)!.push(index);
-    });
-    
-    const totalWords = words.length;
+    const wordRegex = /[a-zA-Z0-9\u4e00-\u9fff\$\+\-\*\/=\^\(\)]+/g;
+    let match: RegExpExecArray | null;
+    let totalWords = 0;
+
+    while ((match = wordRegex.exec(text.toLowerCase())) !== null) {
+      const rawWord = match[0].replace(/[^\w\u4e00-\u9fff\$\+\-\*\/=\^\(\)]/g, '');
+      if (rawWord.length <= 1 || !/[a-zA-Z0-9\u4e00-\u9fff]/.test(rawWord) || this.isStopWord(rawWord)) {
+        continue;
+      }
+
+      totalWords++;
+      frequencies.set(rawWord, (frequencies.get(rawWord) || 0) + 1);
+      if (!positions.has(rawWord)) positions.set(rawWord, []);
+      positions.get(rawWord)!.push(match.index);
+    }
     
     // Build keywords with pre-computed data in single pass
     const keywordArray: Keyword[] = Array.from(frequencies.entries())
@@ -400,7 +401,6 @@ export class ContentMetricsAnalyzer implements Analyzer {
       topicClusters,
       readabilityKeywords: this.extractReadabilityKeywords(text),
       seoKeywords: this.extractSEOKeywords(text),
-      keywordsArray, // Simple array of keyword strings for compatibility
     };
   }
 
@@ -462,23 +462,23 @@ export class ContentMetricsAnalyzer implements Analyzer {
   }
 
   private levenshteinDistance(a: string, b: string): number {
-    const matrix = Array(a.length + 1).fill(null).map(() => Array(b.length + 1).fill(null));
+    const matrix = Array(a.length + 1).fill(0).map(() => Array(b.length + 1).fill(0));
 
-    for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
-    for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+    for (let i = 0; i <= a.length; i++) matrix[i]![0] = i;
+    for (let j = 0; j <= b.length; j++) matrix[0]![j] = j;
 
     for (let i = 1; i <= a.length; i++) {
       for (let j = 1; j <= b.length; j++) {
         const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j] + 1,      // deletion
-          matrix[i][j - 1] + 1,      // insertion
-          matrix[i - 1][j - 1] + cost // substitution
+        matrix[i]![j] = Math.min(
+          matrix[i - 1]![j] + 1,      // deletion
+          matrix[i]![j - 1] + 1,      // insertion
+          matrix[i - 1]![j - 1] + cost // substitution
         );
       }
     }
 
-    return matrix[a.length][b.length];
+    return matrix[a.length]![b.length];
   }
 
   private extractReadabilityKeywords(text: string): string[] {
@@ -664,7 +664,7 @@ class ReadabilityScorer {
     let previousWasVowel = false;
 
     for (let i = 0; i < word.length; i++) {
-      const isVowel = vowels.includes(word[i]);
+      const isVowel = vowels.includes(word[i] || '');
       if (isVowel && !previousWasVowel) {
         syllableCount++;
       }
@@ -716,7 +716,7 @@ class SentimentAnalyzer {
     let totalPositive = 0;
     let totalNegative = 0;
     let totalNeutral = 0;
-    const sentenceSentiments: any[] = [];
+    const sentenceSentiments: Array<{ text: string; score: number; magnitude: number }> = [];
 
     for (const sentence of sentences) {
       const sentiment = this.analyzeSentenceSentiment(sentence);

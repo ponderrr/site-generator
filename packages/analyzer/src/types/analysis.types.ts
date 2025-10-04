@@ -273,6 +273,8 @@ export interface AnalysisWorkerResult {
   success: boolean;
   result?: AnalysisResult;
   error?: string;
+  taskId: string;
+  duration: number;
 }
 
 export interface AnalysisConfig {

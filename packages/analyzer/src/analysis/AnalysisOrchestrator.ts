@@ -3,7 +3,7 @@ import Piscina from 'piscina';
 import { LRUCache } from 'lru-cache';
 import { createHash } from 'crypto';
 import pLimit from 'p-limit';
-import {
+import type {
   ExtractedPage,
   AnalysisResult,
   PageAnalysis,
@@ -18,12 +18,12 @@ import {
 
 export class AnalysisOrchestrator {
   private workerPool: Piscina;
-  private resultCache: LRUCache<string, PageAnalysis>;
+  private resultCache: LRUCache<string, AnalysisResult>;
   private taskCounter: number = 0;
-  private progressCallback?: (progress: AnalysisProgress) => void;
-  private memoryMonitor?: NodeJS.Timeout;
+  private progressCallback?: ((progress: AnalysisProgress) => void) | undefined;
+  private memoryMonitor?: NodeJS.Timeout | undefined;
   private isMemoryPressureHigh: boolean = false;
-  private healthCheckInterval?: NodeJS.Timeout;
+  private healthCheckInterval?: NodeJS.Timeout | undefined;
   private activeTasks: Set<string> = new Set();
 
   constructor(
@@ -75,7 +75,7 @@ export class AnalysisOrchestrator {
     pages: ExtractedPage[],
     onProgress?: (progress: AnalysisProgress) => void
   ): Promise<AnalysisResult[]> {
-    this.progressCallback = onProgress;
+    this.progressCallback = onProgress || undefined;
     const startTime = Date.now();
     const results: AnalysisResult[] = [];
 
@@ -87,6 +87,7 @@ export class AnalysisOrchestrator {
 
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
+      if (!batch) continue;
       const batchStartTime = Date.now();
 
       console.log(`📊 Processing batch ${i + 1}/${totalBatches} (${batch.length} pages)`);
@@ -304,7 +305,7 @@ export class AnalysisOrchestrator {
     
     // Simple cosine similarity based on embeddings if available
     if (a.embeddings && b.embeddings && a.embeddings.length === b.embeddings.length) {
-      const dotProduct = a.embeddings.reduce((sum, val, i) => sum + val * (b.embeddings[i] || 0), 0);
+      const dotProduct = a.embeddings.reduce((sum, val, i) => sum + val * ((b.embeddings && b.embeddings[i]) || 0), 0);
       const normA = Math.sqrt(a.embeddings.reduce((sum, val) => sum + val * val, 0));
       const normB = Math.sqrt(b.embeddings.reduce((sum, val) => sum + val * val, 0));
 
@@ -413,9 +414,6 @@ export class AnalysisOrchestrator {
     }
   }
 
-  async destroy(): Promise<void> {
-    await this.workerPool.destroy();
-  }
 
   getCacheStats() {
     return {
