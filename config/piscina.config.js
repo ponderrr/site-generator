@@ -1,20 +1,18 @@
 const { cpus } = require('os');
 const Piscina = require('piscina');
+const { DEFAULT_WORKER_CONFIG, DEFAULT_MAIN_CONFIG } = require('./memory.config.js');
 
 module.exports = {
   // Worker thread pool configuration
   piscina: {
-    // Use all 16 logical processors
-    maxThreads: cpus().length,
-
-    // Memory management
+    // Memory management - using centralized config
     maxQueue: 1000,
     minThreads: Math.min(4, cpus().length), // Minimum 4 threads
     maxThreads: cpus().length,
 
     // Worker lifecycle
     idleTimeout: 5000, // 5 seconds
-    maxMemoryUsage: 14336 * 1024 * 1024, // 14GB in bytes
+    maxMemoryUsage: DEFAULT_WORKER_CONFIG.maxMemoryUsage, // From centralized config
 
     // Error handling
     retryOnError: true,
@@ -38,7 +36,7 @@ module.exports = {
       maxQueue: 1000,
       idleTimeout: 5000,
       workerData: {
-        maxMemory: 14336 * 1024 * 1024,
+        maxMemory: DEFAULT_WORKER_CONFIG.maxMemoryUsage,
         cpuCount: cpus().length
       }
     });

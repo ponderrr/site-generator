@@ -49,7 +49,7 @@ export class EnhancedLRUCache<T = any> {
       maxSize: defaultOptions.maxSize * 1024, // Convert KB to bytes, respect user config
       dispose: (value: CacheEntry<T>, key: string, reason: string) => {
         // Cleanup logic when items are evicted - only log in development
-        if (process.env.NODE_ENV === 'development') {
+        if (process.env['NODE_ENV'] === 'development') {
           console.debug(`Cache evicted key: ${key}, reason: ${reason}`);
         }
       }
@@ -319,6 +319,10 @@ export class EnhancedLRUCache<T = any> {
     this.stats.size = this.cache.size;
   }
 }
+
+// Export cache key generator
+export { CacheKeyGenerator, analysisCacheKeyGenerator, apiCacheKeyGenerator, sessionCacheKeyGenerator, CacheKeyUtils } from './key-generator';
+export type { CacheKeyOptions, CacheKeyData } from './key-generator';
 
 // Global cache instances
 export const defaultCache = new EnhancedLRUCache();

@@ -31,6 +31,11 @@ export default defineConfig({
       '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*'
     ],
 
+    // Integration test configuration
+    testNamePattern: process.env.INTEGRATION_TESTS_ONLY 
+      ? /integration/i 
+      : undefined,
+
     // Coverage configuration
     coverage: {
       provider: 'v8',
