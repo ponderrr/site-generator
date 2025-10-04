@@ -198,16 +198,13 @@ export class RateLimiter extends EventEmitter {
       throw new RateLimitError(result.reason || 'Rate limit exceeded', result.retryAfter);
     }
 
-    // Wait for concurrency slot if needed
+    // Wait for (and acquire) a concurrency slot if needed
     await this.waitForConcurrencySlot(key, opts);
 
     const startTime = Date.now();
     let success = false;
 
     try {
-      // Update concurrency
-      this.incrementConcurrency(key);
-      
       // Execute the function
       const result = await fn();
       success = true;
@@ -325,6 +322,7 @@ export class RateLimiter extends EventEmitter {
       const current = this.currentConcurrency.get(key) || 0;
       
       if (current < options.maxConcurrent) {
+        this.incrementConcurrency(key);
         return;
       }
 

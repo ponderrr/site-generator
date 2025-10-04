@@ -104,10 +104,8 @@ export class SiteGenerator extends EventEmitter {
       await this.generatePages(result);
 
       // Process assets
-      if (this.config.optimizeImages || this.config.optimizeCSS || this.config.optimizeJS) {
-        this.emit('progress', { step: 'assets', progress: 0 });
-        await this.processAssets(result);
-      }
+      this.emit('progress', { step: 'assets', progress: 0 });
+      await this.processAssets(result);
 
       // Generate sitemap
       if (this.config.generateSitemap) {
@@ -328,29 +326,43 @@ export class SiteGenerator extends EventEmitter {
       
       const assets = await this.discoverAssets();
       let processedCount = 0;
-      
+      const processedAssets: AssetInfo[] = [];
+
       for (let i = 0; i < assets.length; i++) {
         const asset = assets[i];
         if (!asset) continue;
-        
+
         try {
+          const outputDir = join(this.config.outputDir, this.config.assetOutputDir || 'assets');
+          const outputPath = join(outputDir, asset.name);
+
           await this.optimizeAsset(asset);
+
+          const finalSize = existsSync(outputPath) ? statSync(outputPath).size : 0;
+          processedAssets.push({
+            ...asset,
+            path: outputPath,
+            size: finalSize,
+            originalPath: asset.originalPath ?? asset.path
+          });
+
           processedCount++;
-          
+
           this.emit('progress', { 
             step: 'assets', 
             progress: (i + 1) / assets.length,
             current: asset.name,
-            message: `Optimized ${processedCount}/${assets.length} assets`
+            message: `Processed ${processedCount}/${assets.length} assets`
           });
-          
+
         } catch (error) {
-          const errorMessage = `Failed to optimize asset "${asset.name}": ${error}`;
+          const errorMessage = `Failed to process asset "${asset.name}": ${error}`;
           result.warnings.push(errorMessage);
           this.emit('warning', { message: errorMessage });
         }
       }
-      
+
+      this.assets = processedAssets;
       result.assetsProcessed = processedCount;
       this.emit('progress', { step: 'assets', progress: 1, message: `Processed ${processedCount} assets` });
       

@@ -47,6 +47,7 @@ export class HealthCheckManager extends EventEmitter {
   private memoryMonitor: MemoryMonitor;
   private startTime: number = Date.now();
   private version: string = '1.0.0';
+  private healthMonitorInterval?: NodeJS.Timeout;
 
   constructor() {
     super();
@@ -235,7 +236,7 @@ export class HealthCheckManager extends EventEmitter {
 
           if (!healthStatus.healthy) {
             overallStatus = 'fail';
-          } else if (healthStatus.issues.length > 0) {
+          } else if (healthStatus.issues.length > 0 && overallStatus !== 'fail') {
             overallStatus = 'warn';
           }
 
@@ -374,7 +375,7 @@ export class HealthCheckManager extends EventEmitter {
    */
   private startMonitoring(): void {
     // Monitor health every 30 seconds
-    setInterval(async () => {
+    this.healthMonitorInterval = setInterval(async () => {
       try {
         const healthStatus = await this.performHealthCheck({
           includeDetails: false,
@@ -418,6 +419,10 @@ export class HealthCheckManager extends EventEmitter {
    */
   cleanup(): void {
     this.memoryMonitor.stopMonitoring();
+    if (this.healthMonitorInterval) {
+      clearInterval(this.healthMonitorInterval);
+      this.healthMonitorInterval = undefined;
+    }
     this.removeAllListeners();
   }
 }

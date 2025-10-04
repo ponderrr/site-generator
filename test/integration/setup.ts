@@ -57,3 +57,12 @@ global.integrationTestUtils = {
     return buffer;
   },
 };
+
+type IntegrationTestUtils = typeof global.integrationTestUtils;
+
+declare global {
+  // eslint-disable-next-line no-var
+  var integrationTestUtils: IntegrationTestUtils;
+}
+
+export {};

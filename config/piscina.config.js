@@ -1,13 +1,10 @@
 const { cpus } = require('os');
 const Piscina = require('piscina');
-const { DEFAULT_WORKER_CONFIG, DEFAULT_MAIN_CONFIG } = require('./memory.config.ts');
+const { DEFAULT_WORKER_CONFIG, DEFAULT_MAIN_CONFIG } = require('./memory.config.js');
 
 module.exports = {
   // Worker thread pool configuration
   piscina: {
-    // Use all logical processors
-    maxThreads: cpus().length,
-
     // Memory management - using centralized config
     maxQueue: 1000,
     minThreads: Math.min(4, cpus().length), // Minimum 4 threads
