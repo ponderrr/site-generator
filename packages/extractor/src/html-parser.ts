@@ -1,7 +1,7 @@
 import { URL } from 'url';
 import * as cheerio from 'cheerio';
 import { logger } from '@site-generator/core';
-import { ExtractionOptions } from './extractor';
+import type { ExtractionOptions } from './extractor';
 
 export interface HtmlParseResult {
   success: boolean;
@@ -49,6 +49,9 @@ export class HtmlParser {
         };
       }
 
+      // Validate URL to prevent SSRF attacks
+      this.validateUrl(url);
+
       logger.info(`Fetching HTML from ${url}`, { url });
 
       const response = await this.fetchWithTimeout(url, {
@@ -94,7 +97,7 @@ export class HtmlParser {
         metadata: {
           contentType,
           contentLength: html.length,
-          lastModified: response.headers.get('last-modified') || undefined,
+          ...(response.headers.get('last-modified') && { lastModified: response.headers.get('last-modified')! }),
           statusCode: response.status
         }
       };
@@ -156,19 +159,22 @@ export class HtmlParser {
     // Clean up attributes
     $('*').each((_, element) => {
       const $element = $(element);
+      
+      // Type guard to ensure element has attribs
+      if ('attribs' in element && element.attribs) {
+        // Remove data attributes that aren't useful
+        const dataAttrs = Object.keys(element.attribs).filter(attr =>
+          attr.startsWith('data-') && !attr.startsWith('data-src') && !attr.startsWith('data-lazy')
+        );
+        dataAttrs.forEach(attr => $element.removeAttr(attr));
 
-      // Remove data attributes that aren't useful
-      const dataAttrs = Object.keys(element.attribs).filter(attr =>
-        attr.startsWith('data-') && !attr.startsWith('data-src') && !attr.startsWith('data-lazy')
-      );
-      dataAttrs.forEach(attr => $element.removeAttr(attr));
-
-      // Remove empty attributes
-      Object.keys(element.attribs).forEach(attr => {
-        if (!element.attribs[attr] || element.attribs[attr].trim() === '') {
-          $element.removeAttr(attr);
-        }
-      });
+        // Remove empty attributes
+        Object.keys(element.attribs).forEach(attr => {
+          if (!element.attribs[attr] || element.attribs[attr].trim() === '') {
+            $element.removeAttr(attr);
+          }
+        });
+      }
     });
 
     return $.html();
@@ -218,7 +224,7 @@ export class HtmlParser {
   /**
    * Get element nesting depth
    */
-  private getElementDepth(element: cheerio.Cheerio, $: cheerio.Root): number {
+  private getElementDepth(element: cheerio.Cheerio<any>, $: cheerio.CheerioAPI): number {
     if (element.length === 0) return 0;
 
     let maxDepth = 0;
@@ -252,8 +258,7 @@ export class HtmlParser {
           'Connection': 'keep-alive',
           'Upgrade-Insecure-Requests': '1'
         },
-        redirect: options.followRedirects !== false ? 'follow' : 'manual',
-        follow: options.maxRedirects || 5
+        redirect: options.followRedirects !== false ? 'follow' : 'manual'
       });
 
       clearTimeout(timeoutId);
@@ -261,6 +266,44 @@ export class HtmlParser {
     } catch (error) {
       clearTimeout(timeoutId);
       throw error;
+    }
+  }
+
+  /**
+   * Validate URL to prevent SSRF attacks
+   */
+  private validateUrl(url: string): void {
+    try {
+      const parsed = new URL(url);
+      
+      // Only allow http/https
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        throw new Error(`Invalid protocol: ${parsed.protocol}`);
+      }
+      
+      // Block private IP ranges
+      const hostname = parsed.hostname;
+      const privateRanges = [
+        /^127\./,
+        /^10\./,
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+        /^192\.168\./,
+        /^169\.254\./,
+        /^localhost$/i
+      ];
+      
+      if (privateRanges.some(pattern => pattern.test(hostname))) {
+        throw new Error('Cannot fetch from private IP range');
+      }
+      
+      // Block metadata endpoints
+      const blockedHosts = ['169.254.169.254', 'metadata.google.internal'];
+      if (blockedHosts.includes(hostname)) {
+        throw new Error('Blocked metadata endpoint');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Invalid URL: ${errorMessage}`);
     }
   }
 }

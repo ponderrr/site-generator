@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import { URL } from 'url';
 import { logger } from '@site-generator/core';
-import { ExtractionOptions } from './extractor';
+import type { ExtractionOptions } from './extractor';
 
 export class MediaExtractor {
   constructor(private options: ExtractionOptions) {}
@@ -24,7 +24,7 @@ export class MediaExtractor {
           images.push({
             url: absoluteUrl,
             alt,
-            title
+            ...(title && { title })
           });
         } catch (error) {
           logger.warn(`Invalid image URL: ${src}`, { src });
@@ -53,7 +53,7 @@ export class MediaExtractor {
           links.push({
             url: absoluteUrl,
             text,
-            title
+            ...(title && { title })
           });
         } catch (error) {
           logger.warn(`Invalid link URL: ${href}`, { href });
@@ -90,7 +90,7 @@ export class MediaExtractor {
           media.push({
             url: absoluteUrl,
             type: 'video',
-            title: $(sourceElement).attr('title') || undefined
+            ...(($(sourceElement).attr('title')) && { title: $(sourceElement).attr('title')! })
           });
         } catch (error) {
           logger.warn(`Invalid video URL: ${src}`, { src });
@@ -107,7 +107,7 @@ export class MediaExtractor {
           media.push({
             url: absoluteUrl,
             type: 'audio',
-            title: $(sourceElement).attr('title') || undefined
+            ...(($(sourceElement).attr('title')) && { title: $(sourceElement).attr('title')! })
           });
         } catch (error) {
           logger.warn(`Invalid audio URL: ${src}`, { src });
@@ -125,8 +125,9 @@ export class MediaExtractor {
           media.push({
             url: absoluteUrl,
             type: 'document',
-            title: text || $(linkElement).attr('title') || undefined,
-            description: text
+            ...(text && { title: text }),
+            ...((!text && $(linkElement).attr('title')) && { title: $(linkElement).attr('title')! }),
+            ...(text && { description: text })
           });
         } catch (error) {
           logger.warn(`Invalid document URL: ${href}`, { href });
@@ -177,8 +178,8 @@ export class MediaExtractor {
 
       return {
         size: parseInt(response.headers.get('content-length') || '0'),
-        contentType: response.headers.get('content-type') || undefined,
-        lastModified: response.headers.get('last-modified') || undefined
+        ...(response.headers.get('content-type') && { contentType: response.headers.get('content-type')! }),
+        ...(response.headers.get('last-modified') && { lastModified: response.headers.get('last-modified')! })
       };
     } catch (error) {
       logger.warn(`Failed to get media metadata`, { url, error: error instanceof Error ? error.message : String(error) });
