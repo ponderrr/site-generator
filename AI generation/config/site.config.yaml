@@ -1,0 +1,39 @@
+brand:
+  name: "Northshore Exterior Upkeep"
+  voice: "Friendly, trustworthy, local-service professional with environmental focus."
+  reading_level: "8-11th grade"
+  primary_cta: "Get a Free Quote"
+  locations_emphasis: true
+
+llm:
+  model: "llama3.1"
+  # set to true to stream tokens to console in the driver
+  stream: true
+
+generation:
+  per_page: true
+  output_dir: "build/generated"
+
+taxonomy:
+  page_types:
+    - homepage
+    - service
+    - product
+    - blog
+    - contact
+    - faq
+    - location
+    - legal
+    - other
+
+constants:
+  company_name: "Northshore Exterior Upkeep"
+  phone: "(985) 662-8005"
+  email: "northshoreexteriorupkeep@gmail.com"
+  address: "Louisiana"
+  service_areas:
+    - Baton Rouge
+    - Slidell
+    - Covington
+    - Mandeville
+    - Hammond
