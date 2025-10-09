@@ -1,28 +1,30 @@
-const fs = require('fs');
-const path = require('path');
+import { existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-// Copy worker files to dist
-const workersDir = path.join(__dirname, 'src', 'workers');
-const distWorkersDir = path.join(__dirname, 'dist', 'workers');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-// Create dist/workers directory if it doesn't exist
-if (!fs.existsSync(distWorkersDir)) {
-  fs.mkdirSync(distWorkersDir, { recursive: true });
+// Verify worker files exist in dist (tsup should have built them)
+const distWorkersDir = join(__dirname, 'dist', 'workers');
+
+if (!existsSync(distWorkersDir)) {
+  console.error('❌ Worker files not found in dist/workers/');
+  console.error('   This might indicate a tsup configuration issue.');
+  process.exit(1);
 }
 
-// Copy all worker files
-const workerFiles = fs.readdirSync(workersDir);
-workerFiles.forEach(file => {
-  const srcPath = path.join(workersDir, file);
-  const destPath = path.join(distWorkersDir, file.replace('.ts', '.js'));
-  
-  // Read the TypeScript file and write as JavaScript (simple copy for now)
-  const content = fs.readFileSync(srcPath, 'utf8');
-  fs.writeFileSync(destPath, content);
-  console.log(`Copied ${file} to dist/workers/`);
-});
+// Check for the expected worker file
+const workerFile = join(distWorkersDir, 'analysis-worker.js');
+if (existsSync(workerFile)) {
+  console.log('✓ Worker files verified in dist/workers/');
+} else {
+  console.error('❌ analysis-worker.js not found in dist/workers/');
+  console.error('   Expected:', workerFile);
+  process.exit(1);
+}
 
-console.log('Worker files copied successfully!');
+console.log('✓ Worker build verification complete!');
 
 
 

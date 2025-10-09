@@ -1,16 +1,16 @@
 /**
  * @fileoverview Health Check System
- * 
+ *
  * Provides health check endpoints and monitoring for production environments.
  * Enables load balancer health checks and operational visibility.
  */
 
-import { EventEmitter } from 'events';
-import { WorkerPool } from '../worker';
-import { MemoryMonitor, runtimeMemoryConfig } from '../config/memory.config';
+import { EventEmitter } from "events";
+import { WorkerPool } from "../worker/index.js";
+import { MemoryMonitor, runtimeMemoryConfig } from "../config/memory.config.js";
 
 export interface HealthStatus {
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: "healthy" | "degraded" | "unhealthy";
   timestamp: string;
   uptime: number;
   version: string;
@@ -27,7 +27,7 @@ export interface HealthStatus {
 }
 
 export interface HealthCheck {
-  status: 'pass' | 'fail' | 'warn';
+  status: "pass" | "fail" | "warn";
   message?: string;
   details?: any;
   duration?: number;
@@ -46,7 +46,7 @@ export class HealthCheckManager extends EventEmitter {
   private workerPools: Map<string, WorkerPool> = new Map();
   private memoryMonitor: MemoryMonitor;
   private startTime: number = Date.now();
-  private version: string = '1.0.0';
+  private version: string = "1.0.0";
   private healthMonitorInterval?: NodeJS.Timeout;
 
   constructor() {
@@ -60,7 +60,7 @@ export class HealthCheckManager extends EventEmitter {
    */
   registerWorkerPool(name: string, workerPool: WorkerPool): void {
     this.workerPools.set(name, workerPool);
-    this.emit('worker-pool-registered', { name, workerPool });
+    this.emit("worker-pool-registered", { name, workerPool });
   }
 
   /**
@@ -68,45 +68,58 @@ export class HealthCheckManager extends EventEmitter {
    */
   unregisterWorkerPool(name: string): void {
     this.workerPools.delete(name);
-    this.emit('worker-pool-unregistered', { name });
+    this.emit("worker-pool-unregistered", { name });
   }
 
   /**
    * Perform comprehensive health check
    */
-  async performHealthCheck(options: HealthCheckOptions = {}): Promise<HealthStatus> {
+  async performHealthCheck(
+    options: HealthCheckOptions = {},
+  ): Promise<HealthStatus> {
     const {
       timeout = 5000,
       includeDetails = true,
-      includeMetrics = true
+      includeMetrics = true,
     } = options;
 
     const startTime = Date.now();
-    
+
     try {
       // Perform checks in parallel with timeout
-      const [memoryCheck, workersCheck, systemCheck] = await Promise.allSettled([
-        this.checkMemory(timeout),
-        this.checkWorkers(timeout),
-        this.checkSystem(timeout)
-      ]);
+      const [memoryCheck, workersCheck, systemCheck] = await Promise.allSettled(
+        [
+          this.checkMemory(timeout),
+          this.checkWorkers(timeout),
+          this.checkSystem(timeout),
+        ],
+      );
 
       const checks = {
-        memory: memoryCheck.status === 'fulfilled' ? memoryCheck.value : {
-          status: 'fail' as const,
-          message: memoryCheck.reason?.message || 'Memory check failed',
-          duration: Date.now() - startTime
-        },
-        workers: workersCheck.status === 'fulfilled' ? workersCheck.value : {
-          status: 'fail' as const,
-          message: workersCheck.reason?.message || 'Workers check failed',
-          duration: Date.now() - startTime
-        },
-        system: systemCheck.status === 'fulfilled' ? systemCheck.value : {
-          status: 'fail' as const,
-          message: systemCheck.reason?.message || 'System check failed',
-          duration: Date.now() - startTime
-        }
+        memory:
+          memoryCheck.status === "fulfilled"
+            ? memoryCheck.value
+            : {
+                status: "fail" as const,
+                message: memoryCheck.reason?.message || "Memory check failed",
+                duration: Date.now() - startTime,
+              },
+        workers:
+          workersCheck.status === "fulfilled"
+            ? workersCheck.value
+            : {
+                status: "fail" as const,
+                message: workersCheck.reason?.message || "Workers check failed",
+                duration: Date.now() - startTime,
+              },
+        system:
+          systemCheck.status === "fulfilled"
+            ? systemCheck.value
+            : {
+                status: "fail" as const,
+                message: systemCheck.reason?.message || "System check failed",
+                duration: Date.now() - startTime,
+              },
       };
 
       // Determine overall status
@@ -118,39 +131,52 @@ export class HealthCheckManager extends EventEmitter {
         uptime: Date.now() - this.startTime,
         version: this.version,
         checks,
-        metrics: includeMetrics ? {
-          memoryUsage: process.memoryUsage(),
-          workerStats: this.getWorkerStats(),
-          systemLoad: this.getSystemLoad()
-        } : {
-          memoryUsage: process.memoryUsage(),
-          workerStats: {},
-          systemLoad: {}
-        }
+        metrics: includeMetrics
+          ? {
+              memoryUsage: process.memoryUsage(),
+              workerStats: this.getWorkerStats(),
+              systemLoad: this.getSystemLoad(),
+            }
+          : {
+              memoryUsage: process.memoryUsage(),
+              workerStats: {},
+              systemLoad: {},
+            },
       };
 
-      this.emit('health-check', healthStatus);
+      this.emit("health-check", healthStatus);
       return healthStatus;
-
     } catch (error) {
       const healthStatus: HealthStatus = {
-        status: 'unhealthy',
+        status: "unhealthy",
         timestamp: new Date().toISOString(),
         uptime: Date.now() - this.startTime,
         version: this.version,
         checks: {
-          memory: { status: 'fail', message: 'Health check failed', duration: Date.now() - startTime },
-          workers: { status: 'fail', message: 'Health check failed', duration: Date.now() - startTime },
-          system: { status: 'fail', message: 'Health check failed', duration: Date.now() - startTime }
+          memory: {
+            status: "fail",
+            message: "Health check failed",
+            duration: Date.now() - startTime,
+          },
+          workers: {
+            status: "fail",
+            message: "Health check failed",
+            duration: Date.now() - startTime,
+          },
+          system: {
+            status: "fail",
+            message: "Health check failed",
+            duration: Date.now() - startTime,
+          },
         },
         metrics: {
           memoryUsage: process.memoryUsage(),
           workerStats: {},
-          systemLoad: {}
-        }
+          systemLoad: {},
+        },
       };
 
-      this.emit('health-check-failed', { error, healthStatus });
+      this.emit("health-check-failed", { error, healthStatus });
       return healthStatus;
     }
   }
@@ -160,26 +186,27 @@ export class HealthCheckManager extends EventEmitter {
    */
   private async checkMemory(timeout: number): Promise<HealthCheck> {
     const startTime = Date.now();
-    
+
     try {
       const memoryUsage = process.memoryUsage();
       const memoryPressure = this.memoryMonitor.getMemoryPressure();
       const systemInfo = runtimeMemoryConfig.getSystemInfo();
-      
-      const heapUsagePercent = (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100;
-      
-      let status: HealthCheck['status'] = 'pass';
-      let message = 'Memory usage is normal';
 
-      if (memoryPressure === 'critical') {
-        status = 'fail';
-        message = 'Critical memory pressure detected';
-      } else if (memoryPressure === 'high') {
-        status = 'warn';
-        message = 'High memory pressure detected';
+      const heapUsagePercent =
+        (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100;
+
+      let status: HealthCheck["status"] = "pass";
+      let message = "Memory usage is normal";
+
+      if (memoryPressure === "critical") {
+        status = "fail";
+        message = "Critical memory pressure detected";
+      } else if (memoryPressure === "high") {
+        status = "warn";
+        message = "High memory pressure detected";
       } else if (heapUsagePercent > 90) {
-        status = 'warn';
-        message = 'Heap usage is very high';
+        status = "warn";
+        message = "Heap usage is very high";
       }
 
       return {
@@ -191,16 +218,15 @@ export class HealthCheckManager extends EventEmitter {
           heapUsed: memoryUsage.heapUsed,
           heapTotal: memoryUsage.heapTotal,
           systemMemory: systemInfo.totalMemory,
-          availableMemory: systemInfo.availableMemory
+          availableMemory: systemInfo.availableMemory,
         },
-        duration: Date.now() - startTime
+        duration: Date.now() - startTime,
       };
-
     } catch (error) {
       return {
-        status: 'fail',
+        status: "fail",
         message: `Memory check failed: ${error}`,
-        duration: Date.now() - startTime
+        duration: Date.now() - startTime,
       };
     }
   }
@@ -210,17 +236,17 @@ export class HealthCheckManager extends EventEmitter {
    */
   private async checkWorkers(timeout: number): Promise<HealthCheck> {
     const startTime = Date.now();
-    
+
     try {
       if (this.workerPools.size === 0) {
         return {
-          status: 'pass',
-          message: 'No worker pools registered',
-          duration: Date.now() - startTime
+          status: "pass",
+          message: "No worker pools registered",
+          duration: Date.now() - startTime,
         };
       }
 
-      let overallStatus: HealthCheck['status'] = 'pass';
+      let overallStatus: HealthCheck["status"] = "pass";
       const workerDetails: any = {};
 
       for (const [name, workerPool] of Array.from(this.workerPools.entries())) {
@@ -231,41 +257,43 @@ export class HealthCheckManager extends EventEmitter {
             threads: healthStatus.threads,
             queueSize: healthStatus.queueSize,
             memoryPressure: healthStatus.memoryPressure,
-            issues: healthStatus.issues
+            issues: healthStatus.issues,
           };
 
           if (!healthStatus.healthy) {
-            overallStatus = 'fail';
-          } else if (healthStatus.issues.length > 0 && overallStatus !== 'fail') {
-            overallStatus = 'warn';
+            overallStatus = "fail";
+          } else if (
+            healthStatus.issues.length > 0 &&
+            overallStatus !== "fail"
+          ) {
+            overallStatus = "warn";
           }
-
         } catch (error) {
           workerDetails[name] = {
-            error: error instanceof Error ? error.message : String(error)
+            error: error instanceof Error ? error.message : String(error),
           };
-          overallStatus = 'fail';
+          overallStatus = "fail";
         }
       }
 
-      const message = overallStatus === 'pass' 
-        ? 'All worker pools are healthy'
-        : overallStatus === 'warn'
-        ? 'Some worker pools have warnings'
-        : 'Worker pools are unhealthy';
+      const message =
+        overallStatus === "pass"
+          ? "All worker pools are healthy"
+          : overallStatus === "warn"
+            ? "Some worker pools have warnings"
+            : "Worker pools are unhealthy";
 
       return {
         status: overallStatus,
         message,
         details: workerDetails,
-        duration: Date.now() - startTime
+        duration: Date.now() - startTime,
       };
-
     } catch (error) {
       return {
-        status: 'fail',
+        status: "fail",
         message: `Workers check failed: ${error}`,
-        duration: Date.now() - startTime
+        duration: Date.now() - startTime,
       };
     }
   }
@@ -275,23 +303,24 @@ export class HealthCheckManager extends EventEmitter {
    */
   private async checkSystem(timeout: number): Promise<HealthCheck> {
     const startTime = Date.now();
-    
+
     try {
       const systemInfo = runtimeMemoryConfig.getSystemInfo();
-      
+
       // Check if system has sufficient resources
       const memoryUsage = process.memoryUsage();
-      const systemMemoryUsage = (memoryUsage.heapUsed / systemInfo.totalMemory) * 100;
-      
-      let status: HealthCheck['status'] = 'pass';
-      let message = 'System resources are adequate';
+      const systemMemoryUsage =
+        (memoryUsage.heapUsed / systemInfo.totalMemory) * 100;
+
+      let status: HealthCheck["status"] = "pass";
+      let message = "System resources are adequate";
 
       if (systemMemoryUsage > 95) {
-        status = 'fail';
-        message = 'System memory usage is critical';
+        status = "fail";
+        message = "System memory usage is critical";
       } else if (systemMemoryUsage > 85) {
-        status = 'warn';
-        message = 'System memory usage is high';
+        status = "warn";
+        message = "System memory usage is high";
       }
 
       return {
@@ -304,16 +333,15 @@ export class HealthCheckManager extends EventEmitter {
           systemMemoryUsage: Math.round(systemMemoryUsage * 100) / 100,
           nodeVersion: process.version,
           platform: process.platform,
-          arch: process.arch
+          arch: process.arch,
         },
-        duration: Date.now() - startTime
+        duration: Date.now() - startTime,
       };
-
     } catch (error) {
       return {
-        status: 'fail',
+        status: "fail",
         message: `System check failed: ${error}`,
-        duration: Date.now() - startTime
+        duration: Date.now() - startTime,
       };
     }
   }
@@ -321,15 +349,17 @@ export class HealthCheckManager extends EventEmitter {
   /**
    * Determine overall health status
    */
-  private determineOverallStatus(checks: HealthStatus['checks']): HealthStatus['status'] {
-    const checkStatuses = Object.values(checks).map(check => check.status);
-    
-    if (checkStatuses.includes('fail')) {
-      return 'unhealthy';
-    } else if (checkStatuses.includes('warn')) {
-      return 'degraded';
+  private determineOverallStatus(
+    checks: HealthStatus["checks"],
+  ): HealthStatus["status"] {
+    const checkStatuses = Object.values(checks).map((check) => check.status);
+
+    if (checkStatuses.includes("fail")) {
+      return "unhealthy";
+    } else if (checkStatuses.includes("warn")) {
+      return "degraded";
     } else {
-      return 'healthy';
+      return "healthy";
     }
   }
 
@@ -338,15 +368,17 @@ export class HealthCheckManager extends EventEmitter {
    */
   private getWorkerStats(): any {
     const stats: any = {};
-    
+
     for (const [name, workerPool] of Array.from(this.workerPools.entries())) {
       try {
         stats[name] = workerPool.getPoolStats();
       } catch (error) {
-        stats[name] = { error: error instanceof Error ? error.message : String(error) };
+        stats[name] = {
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     }
-    
+
     return stats;
   }
 
@@ -355,15 +387,15 @@ export class HealthCheckManager extends EventEmitter {
    */
   private getSystemLoad(): any {
     try {
-      const cpus = require('os').cpus();
-      const loadavg = require('os').loadavg();
-      
+      const cpus = require("os").cpus();
+      const loadavg = require("os").loadavg();
+
       return {
         loadAverage: loadavg,
         cpuCount: cpus.length,
-        uptime: require('os').uptime(),
-        freeMemory: require('os').freemem(),
-        totalMemory: require('os').totalmem()
+        uptime: require("os").uptime(),
+        freeMemory: require("os").freemem(),
+        totalMemory: require("os").totalmem(),
       };
     } catch (error) {
       return { error: error instanceof Error ? error.message : String(error) };
@@ -379,14 +411,14 @@ export class HealthCheckManager extends EventEmitter {
       try {
         const healthStatus = await this.performHealthCheck({
           includeDetails: false,
-          includeMetrics: false
+          includeMetrics: false,
         });
-        
-        if (healthStatus.status !== 'healthy') {
-          this.emit('health-degraded', healthStatus);
+
+        if (healthStatus.status !== "healthy") {
+          this.emit("health-degraded", healthStatus);
         }
       } catch (error) {
-        this.emit('health-monitoring-error', error);
+        this.emit("health-monitoring-error", error);
       }
     }, 30000);
   }
@@ -398,18 +430,18 @@ export class HealthCheckManager extends EventEmitter {
     try {
       const memoryUsage = process.memoryUsage();
       const memoryPressure = this.memoryMonitor.getMemoryPressure();
-      
+
       // Quick check - just memory pressure
-      const status = memoryPressure === 'critical' ? 'unhealthy' : 'healthy';
-      
+      const status = memoryPressure === "critical" ? "unhealthy" : "healthy";
+
       return {
         status,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
     } catch (error) {
       return {
-        status: 'unhealthy',
-        timestamp: new Date().toISOString()
+        status: "unhealthy",
+        timestamp: new Date().toISOString(),
       };
     }
   }
@@ -441,12 +473,12 @@ export function createHealthCheckMiddleware() {
     basic: async (req: any, res: any) => {
       try {
         const status = await healthCheckManager.getQuickHealthStatus();
-        res.status(status.status === 'healthy' ? 200 : 503).json(status);
+        res.status(status.status === "healthy" ? 200 : 503).json(status);
       } catch (error) {
         res.status(503).json({
-          status: 'unhealthy',
+          status: "unhealthy",
           timestamp: new Date().toISOString(),
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
       }
     },
@@ -454,23 +486,27 @@ export function createHealthCheckMiddleware() {
     // Detailed health check for monitoring
     detailed: async (req: any, res: any) => {
       try {
-        const includeDetails = req.query.details === 'true';
-        const includeMetrics = req.query.metrics === 'true';
-        
+        const includeDetails = req.query.details === "true";
+        const includeMetrics = req.query.metrics === "true";
+
         const healthStatus = await healthCheckManager.performHealthCheck({
           includeDetails,
-          includeMetrics
+          includeMetrics,
         });
-        
-        const statusCode = healthStatus.status === 'healthy' ? 200 : 
-                          healthStatus.status === 'degraded' ? 200 : 503;
-        
+
+        const statusCode =
+          healthStatus.status === "healthy"
+            ? 200
+            : healthStatus.status === "degraded"
+              ? 200
+              : 503;
+
         res.status(statusCode).json(healthStatus);
       } catch (error) {
         res.status(503).json({
-          status: 'unhealthy',
+          status: "unhealthy",
           timestamp: new Date().toISOString(),
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
       }
     },
@@ -480,20 +516,22 @@ export function createHealthCheckMiddleware() {
       try {
         const healthStatus = await healthCheckManager.performHealthCheck({
           includeDetails: false,
-          includeMetrics: false
+          includeMetrics: false,
         });
-        
-        const isReady = healthStatus.status === 'healthy' || healthStatus.status === 'degraded';
+
+        const isReady =
+          healthStatus.status === "healthy" ||
+          healthStatus.status === "degraded";
         res.status(isReady ? 200 : 503).json({
           ready: isReady,
           timestamp: new Date().toISOString(),
-          status: healthStatus.status
+          status: healthStatus.status,
         });
       } catch (error) {
         res.status(503).json({
           ready: false,
           timestamp: new Date().toISOString(),
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
       }
     },
@@ -502,27 +540,28 @@ export function createHealthCheckMiddleware() {
     liveness: async (req: any, res: any) => {
       try {
         const memoryUsage = process.memoryUsage();
-        const memoryPressure = healthCheckManager['memoryMonitor'].getMemoryPressure();
-        
+        const memoryPressure =
+          healthCheckManager["memoryMonitor"].getMemoryPressure();
+
         // Liveness check is more lenient - just check if process is responsive
-        const isAlive = memoryPressure !== 'critical';
-        
+        const isAlive = memoryPressure !== "critical";
+
         res.status(isAlive ? 200 : 503).json({
           alive: isAlive,
           timestamp: new Date().toISOString(),
           uptime: process.uptime(),
-          memoryPressure
+          memoryPressure,
         });
       } catch (error) {
         res.status(503).json({
           alive: false,
           timestamp: new Date().toISOString(),
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
       }
-    }
+    },
   };
 }
 
 // Export the HealthCheckServer and startHealthCheckServer from the server module
-export { HealthCheckServer, startHealthCheckServer } from './server';
+export { HealthCheckServer, startHealthCheckServer } from "./server.js";

@@ -25,45 +25,45 @@ pnpm add @site-generator/core
 ### Caching
 
 ```typescript
-import { EnhancedLRUCache } from '@site-generator/core';
+import { EnhancedLRUCache } from "@site-generator/core";
 
 const cache = new EnhancedLRUCache({
   max: 1000,
   ttl: 300000, // 5 minutes
-  updateAgeOnGet: true
+  updateAgeOnGet: true,
 });
 
 // Store data
-cache.set('key', { data: 'value' });
+cache.set("key", { data: "value" });
 
 // Retrieve data
-const data = cache.get('key');
+const data = cache.get("key");
 ```
 
 ### Worker Pool
 
 ```typescript
-import { WorkerPool } from '@site-generator/core';
+import { WorkerPool } from "@site-generator/core";
 
 const pool = new WorkerPool({
-  filename: './worker.js',
+  filename: "./worker.js",
   minThreads: 2,
-  maxThreads: 8
+  maxThreads: 8,
 });
 
 // Execute task
-const result = await pool.run({ task: 'process', data: input });
+const result = await pool.run({ task: "process", data: input });
 ```
 
 ### Performance Monitoring
 
 ```typescript
-import { PerformanceMonitor } from '@site-generator/core';
+import { PerformanceMonitor } from "@site-generator/core";
 
 const monitor = new PerformanceMonitor();
 
 // Track operation
-const operation = monitor.startOperation('extract-content');
+const operation = monitor.startOperation("extract-content");
 // ... do work ...
 operation.end();
 
@@ -74,14 +74,14 @@ const metrics = monitor.getMetrics();
 ### Validation
 
 ```typescript
-import { validateInput } from '@site-generator/core';
+import { validateInput } from "@site-generator/core";
 
 const schema = z.object({
   url: z.string().url(),
   options: z.object({
     timeout: z.number().positive(),
-    retries: z.number().min(0).max(5)
-  })
+    retries: z.number().min(0).max(5),
+  }),
 });
 
 const result = validateInput(input, schema);

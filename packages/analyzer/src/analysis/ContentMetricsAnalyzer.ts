@@ -9,7 +9,7 @@ import type {
   KeywordAnalysis,
   Keyword,
   TopicCluster,
-} from '../types/analysis.types';
+} from '../types/analysis.types.js';
 
 export class ContentMetricsAnalyzer implements Analyzer {
   name = 'content-metrics';

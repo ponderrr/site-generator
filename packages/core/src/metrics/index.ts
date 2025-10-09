@@ -1,4 +1,9 @@
-import { MetricData, MetricType, MetricTags, AggregationType } from '../types';
+import {
+  MetricData,
+  MetricType,
+  MetricTags,
+  AggregationType,
+} from "../types/index.js";
 
 export interface MetricsCollectorOptions {
   maxRetention?: number;
@@ -18,8 +23,8 @@ export class MetricsCollector {
       maxMetrics: 10000,
       aggregationInterval: 60 * 1000, // 1 minute
       enablePersistence: false,
-      persistencePath: './metrics.json',
-      ...options
+      persistencePath: "./metrics.json",
+      ...options,
     };
   }
 
@@ -29,16 +34,16 @@ export class MetricsCollector {
   record(
     name: string,
     value: number,
-    type: MetricType = 'gauge',
+    type: MetricType = "gauge",
     tags: MetricTags = {},
-    timestamp?: number
+    timestamp?: number,
   ): void {
     const metric: MetricData = {
       name,
       value,
       type,
       tags,
-      timestamp: timestamp || Date.now()
+      timestamp: timestamp || Date.now(),
     };
 
     if (!this.metrics.has(name)) {
@@ -64,7 +69,7 @@ export class MetricsCollector {
     const metricList = this.metrics.get(name) || [];
     if (!since) return [...metricList];
 
-    return metricList.filter(metric => metric.timestamp >= since);
+    return metricList.filter((metric) => metric.timestamp >= since);
   }
 
   /**
@@ -72,53 +77,53 @@ export class MetricsCollector {
    */
   getAggregatedMetrics(
     name: string,
-    aggregation: AggregationType = 'avg',
+    aggregation: AggregationType = "avg",
     since?: number,
-    tags?: MetricTags
+    tags?: MetricTags,
   ): { value: number; count: number; min: number; max: number } | null {
     let metrics = this.getMetrics(name, since);
 
     if (tags) {
-      metrics = metrics.filter(metric =>
-        Object.entries(tags).every(([key, value]) =>
-          metric.tags[key] === value
-        )
+      metrics = metrics.filter((metric) =>
+        Object.entries(tags).every(
+          ([key, value]) => metric.tags[key] === value,
+        ),
       );
     }
 
     if (metrics.length === 0) return null;
 
-    const values = metrics.map(m => m.value);
+    const values = metrics.map((m) => m.value);
     const result = {
       count: metrics.length,
       min: Math.min(...values),
       max: Math.max(...values),
-      value: 0
+      value: 0,
     };
 
     switch (aggregation) {
-      case 'sum':
+      case "sum":
         result.value = values.reduce((a, b) => a + b, 0);
         break;
-      case 'avg':
+      case "avg":
         result.value = values.reduce((a, b) => a + b, 0) / values.length;
         break;
-      case 'min':
+      case "min":
         result.value = result.min;
         break;
-      case 'max':
+      case "max":
         result.value = result.max;
         break;
-      case 'count':
+      case "count":
         result.value = result.count;
         break;
-      case 'p50':
+      case "p50":
         result.value = this.percentile(values, 0.5);
         break;
-      case 'p95':
+      case "p95":
         result.value = this.percentile(values, 0.95);
         break;
-      case 'p99':
+      case "p99":
         result.value = this.percentile(values, 0.99);
         break;
     }
@@ -152,12 +157,12 @@ export class MetricsCollector {
 
     for (const [name, metrics] of this.metrics.entries()) {
       const filteredMetrics = since
-        ? metrics.filter(m => m.timestamp >= since)
+        ? metrics.filter((m) => m.timestamp >= since)
         : metrics;
 
       if (filteredMetrics.length === 0) continue;
 
-      const values = filteredMetrics.map(m => m.value);
+      const values = filteredMetrics.map((m) => m.value);
       const latest = filteredMetrics[filteredMetrics.length - 1];
 
       summary.push({
@@ -168,7 +173,7 @@ export class MetricsCollector {
         max: Math.max(...values),
         avg: values.reduce((a, b) => a + b, 0) / values.length,
         type: latest.type,
-        tags: latest.tags
+        tags: latest.tags,
       });
     }
 
@@ -188,10 +193,10 @@ export class MetricsCollector {
     }> = [];
 
     for (const [name, metrics] of this.metrics.entries()) {
-      const matchingMetrics = metrics.filter(metric =>
-        Object.entries(tags).every(([key, value]) =>
-          metric.tags[key] === value
-        )
+      const matchingMetrics = metrics.filter((metric) =>
+        Object.entries(tags).every(
+          ([key, value]) => metric.tags[key] === value,
+        ),
       );
 
       if (matchingMetrics.length > 0) {
@@ -205,34 +210,44 @@ export class MetricsCollector {
   /**
    * Increment a counter metric
    */
-  incrementCounter(name: string, value: number = 1, tags: MetricTags = {}): void {
-    this.record(name, value, 'counter', tags);
+  incrementCounter(
+    name: string,
+    value: number = 1,
+    tags: MetricTags = {},
+  ): void {
+    this.record(name, value, "counter", tags);
   }
 
   /**
    * Record processing time
    */
   recordDuration(name: string, duration: number, tags: MetricTags = {}): void {
-    this.record(name, duration, 'histogram', { ...tags, unit: 'ms' });
+    this.record(name, duration, "histogram", { ...tags, unit: "ms" });
   }
 
   /**
    * Record memory usage
    */
-  recordMemoryUsage(heapUsed: number, heapTotal: number, external: number): void {
-    this.record('memory.heap_used', heapUsed, 'gauge', { unit: 'bytes' });
-    this.record('memory.heap_total', heapTotal, 'gauge', { unit: 'bytes' });
-    this.record('memory.external', external, 'gauge', { unit: 'bytes' });
-    this.record('memory.usage_percent', (heapUsed / heapTotal) * 100, 'gauge', { unit: 'percent' });
+  recordMemoryUsage(
+    heapUsed: number,
+    heapTotal: number,
+    external: number,
+  ): void {
+    this.record("memory.heap_used", heapUsed, "gauge", { unit: "bytes" });
+    this.record("memory.heap_total", heapTotal, "gauge", { unit: "bytes" });
+    this.record("memory.external", external, "gauge", { unit: "bytes" });
+    this.record("memory.usage_percent", (heapUsed / heapTotal) * 100, "gauge", {
+      unit: "percent",
+    });
   }
 
   /**
    * Record CPU usage
    */
   recordCpuUsage(percentage: number, user: number, system: number): void {
-    this.record('cpu.usage_percent', percentage, 'gauge', { unit: 'percent' });
-    this.record('cpu.user_percent', user, 'gauge', { unit: 'percent' });
-    this.record('cpu.system_percent', system, 'gauge', { unit: 'percent' });
+    this.record("cpu.usage_percent", percentage, "gauge", { unit: "percent" });
+    this.record("cpu.user_percent", user, "gauge", { unit: "percent" });
+    this.record("cpu.system_percent", system, "gauge", { unit: "percent" });
   }
 
   /**
@@ -289,14 +304,17 @@ export class MetricsCollector {
     memoryUsage: number;
     maxRetention: number;
   } {
-    const totalMetrics = Array.from(this.metrics.values()).reduce((sum, metrics) => sum + metrics.length, 0);
+    const totalMetrics = Array.from(this.metrics.values()).reduce(
+      (sum, metrics) => sum + metrics.length,
+      0,
+    );
     const memoryUsage = JSON.stringify([...this.metrics.entries()]).length;
 
     return {
       totalMetrics,
       metricNames: Array.from(this.metrics.keys()),
       memoryUsage,
-      maxRetention: this.options.maxRetention
+      maxRetention: this.options.maxRetention,
     };
   }
 
@@ -304,7 +322,9 @@ export class MetricsCollector {
     const cutoffTime = Date.now() - this.options.maxRetention;
 
     for (const [name, metrics] of this.metrics.entries()) {
-      const filteredMetrics = metrics.filter(metric => metric.timestamp >= cutoffTime);
+      const filteredMetrics = metrics.filter(
+        (metric) => metric.timestamp >= cutoffTime,
+      );
       this.metrics.set(name, filteredMetrics);
     }
   }
@@ -332,26 +352,47 @@ export const defaultMetricsCollector = new MetricsCollector();
 
 // Utility functions for common metrics
 export const MetricsUtils = {
-  recordOperationDuration: (operation: string, duration: number, tags: MetricTags = {}) => {
-    defaultMetricsCollector.recordDuration(`operation.${operation}`, duration, tags);
+  recordOperationDuration: (
+    operation: string,
+    duration: number,
+    tags: MetricTags = {},
+  ) => {
+    defaultMetricsCollector.recordDuration(
+      `operation.${operation}`,
+      duration,
+      tags,
+    );
   },
 
   recordError: (component: string, error: string, tags: MetricTags = {}) => {
-    defaultMetricsCollector.incrementCounter('errors', 1, { component, error, ...tags });
+    defaultMetricsCollector.incrementCounter("errors", 1, {
+      component,
+      error,
+      ...tags,
+    });
   },
 
-  recordRequest: (endpoint: string, method: string, duration: number, statusCode: number) => {
-    defaultMetricsCollector.recordDuration(`http.${method}.${endpoint}`, duration, {
-      status_code: statusCode.toString(),
-      method,
-      endpoint
-    });
+  recordRequest: (
+    endpoint: string,
+    method: string,
+    duration: number,
+    statusCode: number,
+  ) => {
+    defaultMetricsCollector.recordDuration(
+      `http.${method}.${endpoint}`,
+      duration,
+      {
+        status_code: statusCode.toString(),
+        method,
+        endpoint,
+      },
+    );
   },
 
   recordCacheHit: (cacheName: string, hit: boolean) => {
-    defaultMetricsCollector.incrementCounter('cache', 1, {
+    defaultMetricsCollector.incrementCounter("cache", 1, {
       cache: cacheName,
-      type: hit ? 'hit' : 'miss'
+      type: hit ? "hit" : "miss",
     });
-  }
+  },
 };

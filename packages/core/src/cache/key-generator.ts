@@ -1,17 +1,17 @@
 /**
  * @fileoverview Cache Key Generation Utilities
- * 
+ *
  * Provides structured cache key generation with versioning for better debugging
  * and cache invalidation strategies.
  */
 
-import { createHash } from 'crypto';
+import { createHash } from "crypto";
 
 export interface CacheKeyOptions {
   version?: string;
   namespace?: string;
   includeTimestamp?: boolean;
-  timestampGranularity?: 'second' | 'minute' | 'hour' | 'day';
+  timestampGranularity?: "second" | "minute" | "hour" | "day";
   maxKeyLength?: number;
   includeContentHash?: boolean;
 }
@@ -28,42 +28,39 @@ export class CacheKeyGenerator {
 
   constructor(options: CacheKeyOptions = {}) {
     this.defaultOptions = {
-      version: '1.0.0',
-      namespace: 'cache',
+      version: "1.0.0",
+      namespace: "cache",
       includeTimestamp: false,
-      timestampGranularity: 'hour',
+      timestampGranularity: "hour",
       maxKeyLength: 255,
       includeContentHash: true,
-      ...options
+      ...options,
     };
   }
 
   /**
    * Generate a structured cache key
    */
-  generate(
-    data: CacheKeyData,
-    options?: Partial<CacheKeyOptions>
-  ): string {
+  generate(data: CacheKeyData, options?: Partial<CacheKeyOptions>): string {
     const opts = { ...this.defaultOptions, ...options };
     const timestamp = this.getTimestamp(opts);
-    
+
     // Create structured key components
     const components = [
       opts.namespace,
       `v${opts.version}`,
       ...this.getKeyComponents(data, opts),
-      timestamp ? `t${timestamp}` : '',
-      opts.includeContentHash ? this.generateContentHash(data) : ''
+      timestamp ? `t${timestamp}` : "",
+      opts.includeContentHash ? this.generateContentHash(data) : "",
     ].filter(Boolean);
 
     // Join components with separator
-    let key = components.join(':');
-    
+    let key = components.join(":");
+
     // Truncate if too long
     if (key.length > opts.maxKeyLength) {
-      const hash = createHash('md5').update(key).digest('hex').substring(0, 8);
-      key = key.substring(0, opts.maxKeyLength - 9) + ':' + hash;
+      const hash = createHash("md5").update(key).digest("hex").substring(0, 8);
+      key = key.substring(0, opts.maxKeyLength - 9) + ":" + hash;
     }
 
     return key;
@@ -76,18 +73,18 @@ export class CacheKeyGenerator {
     url: string,
     content?: string,
     metadata?: CacheKeyData,
-    options?: Partial<CacheKeyOptions>
+    options?: Partial<CacheKeyOptions>,
   ): string {
     const data: CacheKeyData = {
       url,
       contentHash: content ? this.hashContent(content) : undefined,
-      ...metadata
+      ...metadata,
     };
 
     return this.generate(data, {
-      namespace: 'url',
+      namespace: "url",
       includeContentHash: !!content,
-      ...options
+      ...options,
     });
   }
 
@@ -102,20 +99,22 @@ export class CacheKeyGenerator {
       metadata?: CacheKeyData;
     },
     analysisType?: string,
-    options?: Partial<CacheKeyOptions>
+    options?: Partial<CacheKeyOptions>,
   ): string {
     const data: CacheKeyData = {
       url: pageData.url,
       title: pageData.title,
-      contentHash: pageData.content ? this.hashContent(pageData.content) : undefined,
+      contentHash: pageData.content
+        ? this.hashContent(pageData.content)
+        : undefined,
       analysisType,
-      ...pageData.metadata
+      ...pageData.metadata,
     };
 
     return this.generate(data, {
-      namespace: 'analysis',
+      namespace: "analysis",
       includeContentHash: !!pageData.content,
-      ...options
+      ...options,
     });
   }
 
@@ -125,18 +124,18 @@ export class CacheKeyGenerator {
   generateForApi(
     endpoint: string,
     params?: CacheKeyData,
-    options?: Partial<CacheKeyOptions>
+    options?: Partial<CacheKeyOptions>,
   ): string {
     const data: CacheKeyData = {
       endpoint,
-      ...params
+      ...params,
     };
 
     return this.generate(data, {
-      namespace: 'api',
+      namespace: "api",
       includeTimestamp: true,
-      timestampGranularity: 'minute',
-      ...options
+      timestampGranularity: "minute",
+      ...options,
     });
   }
 
@@ -146,18 +145,18 @@ export class CacheKeyGenerator {
   generateForSession(
     userId: string,
     sessionData?: CacheKeyData,
-    options?: Partial<CacheKeyOptions>
+    options?: Partial<CacheKeyOptions>,
   ): string {
     const data: CacheKeyData = {
       userId,
-      ...sessionData
+      ...sessionData,
     };
 
     return this.generate(data, {
-      namespace: 'session',
+      namespace: "session",
       includeTimestamp: true,
-      timestampGranularity: 'day',
-      ...options
+      timestampGranularity: "day",
+      ...options,
     });
   }
 
@@ -171,19 +170,23 @@ export class CacheKeyGenerator {
     timestamp?: string;
     contentHash?: string;
   } {
-    const parts = key.split(':');
+    const parts = key.split(":");
     const [namespace, version, ...rest] = parts;
-    
+
     const result = {
-      namespace: namespace || 'unknown',
-      version: version || 'unknown',
+      namespace: namespace || "unknown",
+      version: version || "unknown",
       components: [] as string[],
-      ...(rest.find(p => p.startsWith('t')) ? { timestamp: rest.find(p => p.startsWith('t'))!.substring(1) } : {}),
-      ...(rest.find(p => p.startsWith('h')) ? { contentHash: rest.find(p => p.startsWith('h'))!.substring(1) } : {})
+      ...(rest.find((p) => p.startsWith("t"))
+        ? { timestamp: rest.find((p) => p.startsWith("t"))!.substring(1) }
+        : {}),
+      ...(rest.find((p) => p.startsWith("h"))
+        ? { contentHash: rest.find((p) => p.startsWith("h"))!.substring(1) }
+        : {}),
     };
 
     for (const part of rest) {
-      if (!part.startsWith('t') && !part.startsWith('h') && part.length > 0) {
+      if (!part.startsWith("t") && !part.startsWith("h") && part.length > 0) {
         result.components.push(part);
       }
     }
@@ -196,15 +199,15 @@ export class CacheKeyGenerator {
    */
   isExpired(key: string, ttlSeconds: number): boolean {
     const parsed = this.parse(key);
-    
+
     if (!parsed.timestamp) {
       return false; // No timestamp, can't determine expiration
     }
 
     const keyTime = parseInt(parsed.timestamp, 10);
     const now = this.getTimestampSeconds();
-    
-    return (now - keyTime) > ttlSeconds;
+
+    return now - keyTime > ttlSeconds;
   }
 
   /**
@@ -212,14 +215,12 @@ export class CacheKeyGenerator {
    */
   generateInvalidationPattern(
     pattern: string,
-    options?: Partial<CacheKeyOptions>
+    options?: Partial<CacheKeyOptions>,
   ): string {
     const opts = { ...this.defaultOptions, ...options };
-    
+
     // Replace wildcards with appropriate patterns
-    const invalidatedPattern = pattern
-      .replace(/\*/g, '*')
-      .replace(/\?/g, '?');
+    const invalidatedPattern = pattern.replace(/\*/g, "*").replace(/\?/g, "?");
 
     return `${opts.namespace}:v${opts.version}:${invalidatedPattern}`;
   }
@@ -229,19 +230,19 @@ export class CacheKeyGenerator {
    */
   private getTimestamp(options: Required<CacheKeyOptions>): string {
     if (!options.includeTimestamp) {
-      return '';
+      return "";
     }
 
     const now = Date.now();
-    
+
     switch (options.timestampGranularity) {
-      case 'second':
+      case "second":
         return Math.floor(now / 1000).toString();
-      case 'minute':
+      case "minute":
         return Math.floor(now / (1000 * 60)).toString();
-      case 'hour':
+      case "hour":
         return Math.floor(now / (1000 * 60 * 60)).toString();
-      case 'day':
+      case "day":
         return Math.floor(now / (1000 * 60 * 60 * 24)).toString();
       default:
         return Math.floor(now / (1000 * 60 * 60)).toString();
@@ -258,27 +259,30 @@ export class CacheKeyGenerator {
   /**
    * Extract key components from data
    */
-  private getKeyComponents(data: CacheKeyData, options: Required<CacheKeyOptions>): string[] {
+  private getKeyComponents(
+    data: CacheKeyData,
+    options: Required<CacheKeyOptions>,
+  ): string[] {
     const components: string[] = [];
-    
+
     // Add URL hash if present
-    if (data['url']) {
-      components.push(this.hashString(data['url'], 8));
+    if (data["url"]) {
+      components.push(this.hashString(data["url"], 8));
     }
-    
+
     // Add title hash if present
-    if (data['title']) {
-      components.push(this.hashString(data['title'], 8));
+    if (data["title"]) {
+      components.push(this.hashString(data["title"], 8));
     }
-    
+
     // Add other important fields
-    const importantFields = ['id', 'type', 'status', 'version'];
+    const importantFields = ["id", "type", "status", "version"];
     for (const field of importantFields) {
       if (data[field]) {
         components.push(`${field}:${this.hashString(String(data[field]), 6)}`);
       }
     }
-    
+
     return components;
   }
 
@@ -286,29 +290,29 @@ export class CacheKeyGenerator {
    * Generate content hash
    */
   private generateContentHash(data: CacheKeyData): string {
-    const contentFields = ['content', 'body', 'data', 'payload'];
-    
+    const contentFields = ["content", "body", "data", "payload"];
+
     for (const field of contentFields) {
       if (data[field]) {
         return `h${this.hashContent(String(data[field])).substring(0, 8)}`;
       }
     }
-    
-    return '';
+
+    return "";
   }
 
   /**
    * Hash content using MD5
    */
   private hashContent(content: string): string {
-    return createHash('md5').update(content).digest('hex');
+    return createHash("md5").update(content).digest("hex");
   }
 
   /**
    * Hash string with specified length
    */
   private hashString(str: string, length: number = 8): string {
-    return createHash('md5').update(str).digest('hex').substring(0, length);
+    return createHash("md5").update(str).digest("hex").substring(0, length);
   }
 }
 
@@ -316,24 +320,24 @@ export class CacheKeyGenerator {
  * Default cache key generator instances
  */
 export const analysisCacheKeyGenerator = new CacheKeyGenerator({
-  namespace: 'analysis',
-  version: '1.0.0',
+  namespace: "analysis",
+  version: "1.0.0",
   includeTimestamp: false,
-  includeContentHash: true
+  includeContentHash: true,
 });
 
 export const apiCacheKeyGenerator = new CacheKeyGenerator({
-  namespace: 'api',
-  version: '1.0.0',
+  namespace: "api",
+  version: "1.0.0",
   includeTimestamp: true,
-  timestampGranularity: 'minute'
+  timestampGranularity: "minute",
 });
 
 export const sessionCacheKeyGenerator = new CacheKeyGenerator({
-  namespace: 'session',
-  version: '1.0.0',
+  namespace: "session",
+  version: "1.0.0",
   includeTimestamp: true,
-  timestampGranularity: 'day'
+  timestampGranularity: "day",
 });
 
 /**
@@ -343,42 +347,49 @@ export const CacheKeyUtils = {
   /**
    * Create a simple cache key from a string
    */
-  simple: (str: string, namespace: string = 'cache'): string => {
-    const hash = createHash('md5').update(str).digest('hex').substring(0, 12);
+  simple: (str: string, namespace: string = "cache"): string => {
+    const hash = createHash("md5").update(str).digest("hex").substring(0, 12);
     return `${namespace}:${hash}`;
   },
 
   /**
    * Create a cache key with version
    */
-  versioned: (str: string, version: string = '1.0.0', namespace: string = 'cache'): string => {
-    const hash = createHash('md5').update(str).digest('hex').substring(0, 12);
+  versioned: (
+    str: string,
+    version: string = "1.0.0",
+    namespace: string = "cache",
+  ): string => {
+    const hash = createHash("md5").update(str).digest("hex").substring(0, 12);
     return `${namespace}:v${version}:${hash}`;
   },
 
   /**
    * Create a cache key with timestamp
    */
-  timestamped: (str: string, granularity: 'second' | 'minute' | 'hour' | 'day' = 'hour'): string => {
-    const hash = createHash('md5').update(str).digest('hex').substring(0, 12);
+  timestamped: (
+    str: string,
+    granularity: "second" | "minute" | "hour" | "day" = "hour",
+  ): string => {
+    const hash = createHash("md5").update(str).digest("hex").substring(0, 12);
     const now = Date.now();
-    
+
     let timestamp: number;
     switch (granularity) {
-      case 'second':
+      case "second":
         timestamp = Math.floor(now / 1000);
         break;
-      case 'minute':
+      case "minute":
         timestamp = Math.floor(now / (1000 * 60));
         break;
-      case 'hour':
+      case "hour":
         timestamp = Math.floor(now / (1000 * 60 * 60));
         break;
-      case 'day':
+      case "day":
         timestamp = Math.floor(now / (1000 * 60 * 60 * 24));
         break;
     }
-    
+
     return `cache:${timestamp}:${hash}`;
   },
 
@@ -388,5 +399,5 @@ export const CacheKeyUtils = {
   isValid: (key: string): boolean => {
     // Basic validation - should not be empty and should contain valid characters
     return key.length > 0 && key.length <= 255 && /^[a-zA-Z0-9:_-]+$/.test(key);
-  }
+  },
 };

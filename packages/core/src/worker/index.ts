@@ -1,9 +1,23 @@
-import { EventEmitter } from 'events';
-import * as path from 'path';
-import * as fs from 'fs';
-import Piscina from 'piscina';
-import type { WorkerMessage, WorkerResponse, ParallelTask, ParallelResult, ResourceLimits } from '../types';
-import { DEFAULT_WORKER_CONFIG, DEFAULT_MAIN_CONFIG, runtimeMemoryConfig } from '../config/memory.config';
+import { EventEmitter } from "events";
+import { fileURLToPath } from "url";
+import { dirname, resolve, isAbsolute, sep } from "path";
+import * as fs from "fs";
+import Piscina from "piscina";
+import type {
+  WorkerMessage,
+  WorkerResponse,
+  ParallelTask,
+  ParallelResult,
+  ResourceLimits,
+} from "../types/index.js";
+import {
+  DEFAULT_WORKER_CONFIG,
+  DEFAULT_MAIN_CONFIG,
+  runtimeMemoryConfig,
+} from "../config/memory.config.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export interface WorkerPoolOptions {
   minThreads?: number;
@@ -19,7 +33,7 @@ export interface WorkerPoolOptions {
 
 export interface WorkerStats {
   threadId: number;
-  status: 'idle' | 'busy' | 'terminating';
+  status: "idle" | "busy" | "terminating";
   tasksCompleted: number;
   tasksFailed: number;
   averageTaskTime: number;
@@ -29,22 +43,24 @@ export interface WorkerStats {
 }
 
 export interface WorkerPoolEvent {
-  'task-completed': (result: ParallelResult) => void;
-  'task-failed': (error: Error, taskId: string) => void;
-  'worker-added': (threadId: number) => void;
-  'worker-removed': (threadId: number) => void;
-  'pool-full': () => void;
-  'pool-empty': () => void;
-  'error': (error: Error) => void;
+  "task-completed": (result: ParallelResult) => void;
+  "task-failed": (error: Error, taskId: string) => void;
+  "worker-added": (threadId: number) => void;
+  "worker-removed": (threadId: number) => void;
+  "pool-full": () => void;
+  "pool-empty": () => void;
+  error: (error: Error) => void;
 }
 
 export declare interface WorkerPool {
   on<U extends keyof WorkerPoolEvent>(
-    event: U, listener: WorkerPoolEvent[U]
+    event: U,
+    listener: WorkerPoolEvent[U],
   ): this;
 
   emit<U extends keyof WorkerPoolEvent>(
-    event: U, ...args: Parameters<WorkerPoolEvent[U]>
+    event: U,
+    ...args: Parameters<WorkerPoolEvent[U]>
   ): boolean;
 }
 
@@ -55,13 +71,13 @@ function resolveWorkerPath(workerFileName: string): string {
   // Try multiple possible locations
   const possiblePaths = [
     // Development path (relative to src)
-    path.resolve(__dirname, './workers', workerFileName),
+    resolve(__dirname, "./workers", workerFileName),
     // Production path (relative to dist)
-    path.resolve(__dirname, '../workers', workerFileName),
+    resolve(__dirname, "../workers", workerFileName),
     // Absolute path if provided
-    path.isAbsolute(workerFileName) ? workerFileName : null,
+    isAbsolute(workerFileName) ? workerFileName : null,
     // Additional fallback: two levels up from current location
-    path.resolve(__dirname, '../../workers', workerFileName)
+    resolve(__dirname, "../../workers", workerFileName),
   ].filter(Boolean) as string[];
 
   for (const workerPath of possiblePaths) {
@@ -71,7 +87,9 @@ function resolveWorkerPath(workerFileName: string): string {
   }
 
   // If no file found, throw descriptive error
-  throw new Error(`Worker file not found: ${workerFileName}. Tried paths: ${possiblePaths.join(', ')}`);
+  throw new Error(
+    `Worker file not found: ${workerFileName}. Tried paths: ${possiblePaths.join(", ")}`,
+  );
 }
 
 export class WorkerPool extends EventEmitter {
@@ -86,10 +104,11 @@ export class WorkerPool extends EventEmitter {
     super();
 
     // Resolve worker file path with robust fallback strategy
-    const defaultWorkerFile = options.workerFile || 'base-worker.js';
-    const resolvedWorkerFile = path.isAbsolute(defaultWorkerFile) || defaultWorkerFile.includes(path.sep)
-      ? defaultWorkerFile 
-      : resolveWorkerPath(defaultWorkerFile);
+    const defaultWorkerFile = options.workerFile || "base-worker.js";
+    const resolvedWorkerFile =
+      isAbsolute(defaultWorkerFile) || defaultWorkerFile.includes(sep)
+        ? defaultWorkerFile
+        : resolveWorkerPath(defaultWorkerFile);
 
     const defaultOptions: Required<WorkerPoolOptions> = {
       minThreads: 4,
@@ -102,12 +121,12 @@ export class WorkerPool extends EventEmitter {
         maxCpu: 100,
         maxConcurrency: 1000,
         maxFileSize: 100 * 1024 * 1024, // 100MB
-        maxRequests: 10000
+        maxRequests: 10000,
       },
       workerFile: resolvedWorkerFile,
       env: {},
       argv: [],
-      ...options
+      ...options,
     };
 
     this.pool = new Piscina({
@@ -121,9 +140,10 @@ export class WorkerPool extends EventEmitter {
       argv: defaultOptions.argv,
       resourceLimits: {
         maxOldGenerationSizeMb: DEFAULT_WORKER_CONFIG.maxOldGenerationSizeMb,
-        maxYoungGenerationSizeMb: DEFAULT_WORKER_CONFIG.maxYoungGenerationSizeMb,
-        ...defaultOptions.resourceLimits
-      }
+        maxYoungGenerationSizeMb:
+          DEFAULT_WORKER_CONFIG.maxYoungGenerationSizeMb,
+        ...defaultOptions.resourceLimits,
+      },
     });
 
     this.initializeWorkerStats();
@@ -137,11 +157,13 @@ export class WorkerPool extends EventEmitter {
   async executeTask<T, R>(
     taskData: T,
     priority: number = 0,
-    timeout?: number
+    timeout?: number,
   ): Promise<R> {
     // Check if pool is accepting new tasks
     if (!this.accepting) {
-      throw new Error('Worker pool is shutting down and not accepting new tasks');
+      throw new Error(
+        "Worker pool is shutting down and not accepting new tasks",
+      );
     }
 
     const taskId = `task_${++this.taskCounter}`;
@@ -155,25 +177,25 @@ export class WorkerPool extends EventEmitter {
       timeout: timeout ?? 30000, // Default to 30 seconds
       execute: async (data: T) => {
         // This will be replaced by the actual worker implementation
-        throw new Error('Task execute function not implemented');
-      }
+        throw new Error("Task execute function not implemented");
+      },
     };
 
     this.activeTasks.set(taskId, task);
 
     try {
-      const result = await this.pool.run(task, { name: 'executeTask' });
+      const result = await this.pool.run(task, { name: "executeTask" });
 
       const duration = Date.now() - startTime;
       const parallelResult: ParallelResult<R> = {
         success: true,
         data: result,
         duration,
-        taskId
+        taskId,
       };
 
       this.updateWorkerStats(taskId, true, duration);
-      this.emit('task-completed', parallelResult);
+      this.emit("task-completed", parallelResult);
 
       return result;
     } catch (error) {
@@ -182,11 +204,11 @@ export class WorkerPool extends EventEmitter {
         success: false,
         error: error as Error,
         duration,
-        taskId
+        taskId,
       };
 
       this.updateWorkerStats(taskId, false, duration);
-      this.emit('task-failed', error as Error, taskId);
+      this.emit("task-failed", error as Error, taskId);
 
       throw error;
     } finally {
@@ -198,10 +220,10 @@ export class WorkerPool extends EventEmitter {
    * Execute multiple tasks in parallel
    */
   async executeTasks<T, R>(
-    tasks: Array<{ data: T; priority?: number; timeout?: number }>
+    tasks: Array<{ data: T; priority?: number; timeout?: number }>,
   ): Promise<R[]> {
-    const promises = tasks.map(task =>
-      this.executeTask<T, R>(task.data, task.priority, task.timeout)
+    const promises = tasks.map((task) =>
+      this.executeTask<T, R>(task.data, task.priority, task.timeout),
     );
 
     return Promise.all(promises);
@@ -213,7 +235,7 @@ export class WorkerPool extends EventEmitter {
   async executeTasksBatched<T, R>(
     tasks: Array<{ data: T; priority?: number; timeout?: number }>,
     batchSize: number = 10,
-    delayBetweenBatches: number = 100
+    delayBetweenBatches: number = 100,
   ): Promise<R[]> {
     const results: R[] = [];
 
@@ -243,18 +265,28 @@ export class WorkerPool extends EventEmitter {
     averageTaskTime: number;
     utilization: number;
   } {
-    const totalCompleted = Array.from(this.workerStats.values())
-      .reduce((sum, stats) => sum + stats.tasksCompleted, 0);
-    const totalFailed = Array.from(this.workerStats.values())
-      .reduce((sum, stats) => sum + stats.tasksFailed, 0);
+    const totalCompleted = Array.from(this.workerStats.values()).reduce(
+      (sum, stats) => sum + stats.tasksCompleted,
+      0,
+    );
+    const totalFailed = Array.from(this.workerStats.values()).reduce(
+      (sum, stats) => sum + stats.tasksFailed,
+      0,
+    );
     const totalTasks = totalCompleted + totalFailed;
 
-    const totalTaskTime = Array.from(this.workerStats.values())
-      .reduce((sum, stats) => sum + (stats.averageTaskTime * stats.tasksCompleted), 0);
+    const totalTaskTime = Array.from(this.workerStats.values()).reduce(
+      (sum, stats) => sum + stats.averageTaskTime * stats.tasksCompleted,
+      0,
+    );
 
     const averageTaskTime = totalTasks > 0 ? totalTaskTime / totalTasks : 0;
-    const utilization = this.pool.threads.length > 0 ?
-      this.activeTasks.size / (this.pool.threads.length * this.pool.options.concurrentTasksPerWorker!) : 0;
+    const utilization =
+      this.pool.threads.length > 0
+        ? this.activeTasks.size /
+          (this.pool.threads.length *
+            this.pool.options.concurrentTasksPerWorker!)
+        : 0;
 
     return {
       threads: this.pool.threads.length,
@@ -263,7 +295,7 @@ export class WorkerPool extends EventEmitter {
       completedTasks: totalCompleted,
       failedTasks: totalFailed,
       averageTaskTime,
-      utilization
+      utilization,
     };
   }
 
@@ -290,7 +322,7 @@ export class WorkerPool extends EventEmitter {
       memory: memoryUsage,
       threads: stats.threads,
       utilization: stats.utilization,
-      uptime: Date.now() - this.startTime
+      uptime: Date.now() - this.startTime,
     };
   }
 
@@ -299,11 +331,11 @@ export class WorkerPool extends EventEmitter {
    */
   async scale(threads: number): Promise<void> {
     if (threads < 1) {
-      throw new Error('Cannot scale to less than 1 thread');
+      throw new Error("Cannot scale to less than 1 thread");
     }
 
     if (threads > 100) {
-      throw new Error('Cannot scale to more than 100 threads');
+      throw new Error("Cannot scale to more than 100 threads");
     }
 
     const currentThreads = this.pool.threads.length;
@@ -311,7 +343,10 @@ export class WorkerPool extends EventEmitter {
     if (threads > currentThreads) {
       // Scale up
       this.pool.options.maxThreads = threads;
-      this.pool.options.minThreads = Math.min(this.pool.options.minThreads || 4, threads);
+      this.pool.options.minThreads = Math.min(
+        this.pool.options.minThreads || 4,
+        threads,
+      );
     } else if (threads < currentThreads) {
       // Scale down
       this.pool.options.maxThreads = threads;
@@ -327,29 +362,33 @@ export class WorkerPool extends EventEmitter {
    * Gracefully shutdown the worker pool with proper task completion waiting
    */
   async shutdown(timeout: number = 30000): Promise<void> {
-    console.log(`🔄 Starting graceful shutdown of worker pool (timeout: ${timeout}ms)`);
-    
+    console.log(
+      `🔄 Starting graceful shutdown of worker pool (timeout: ${timeout}ms)`,
+    );
+
     // Stop accepting new tasks
     this.accepting = false;
-    
+
     const startTime = Date.now();
-    
+
     try {
       // Wait for active tasks to complete
       await this.waitForActiveTasks(timeout);
-      
+
       // Give a small buffer for cleanup
       await this.delay(1000);
-      
+
       // Destroy the pool
       await this.pool.destroy();
-      
+
       const shutdownTime = Date.now() - startTime;
       console.log(`✅ Worker pool shutdown completed in ${shutdownTime}ms`);
-      
     } catch (error) {
       const shutdownTime = Date.now() - startTime;
-      console.error(`❌ Worker pool shutdown failed after ${shutdownTime}ms:`, error);
+      console.error(
+        `❌ Worker pool shutdown failed after ${shutdownTime}ms:`,
+        error,
+      );
       throw error;
     }
   }
@@ -360,25 +399,30 @@ export class WorkerPool extends EventEmitter {
   private async waitForActiveTasks(timeout: number): Promise<void> {
     const startTime = Date.now();
     const checkInterval = 100; // Check every 100ms
-    
+
     while (this.activeTasks.size > 0) {
       const elapsed = Date.now() - startTime;
-      
+
       if (elapsed >= timeout) {
         const remainingTasks = Array.from(this.activeTasks.keys());
-        console.warn(`⚠️ Shutdown timeout reached. ${this.activeTasks.size} tasks still active:`, remainingTasks);
-        
+        console.warn(
+          `⚠️ Shutdown timeout reached. ${this.activeTasks.size} tasks still active:`,
+          remainingTasks,
+        );
+
         // Force terminate remaining tasks
         this.activeTasks.clear();
         break;
       }
-      
-      console.log(`⏳ Waiting for ${this.activeTasks.size} active tasks to complete...`);
+
+      console.log(
+        `⏳ Waiting for ${this.activeTasks.size} active tasks to complete...`,
+      );
       await this.delay(checkInterval);
     }
-    
+
     if (this.activeTasks.size === 0) {
-      console.log('✅ All active tasks completed successfully');
+      console.log("✅ All active tasks completed successfully");
     }
   }
 
@@ -386,7 +430,7 @@ export class WorkerPool extends EventEmitter {
    * Force shutdown the worker pool immediately
    */
   forceShutdown(): void {
-    console.log('🚨 Force shutting down worker pool immediately');
+    console.log("🚨 Force shutting down worker pool immediately");
     this.accepting = false;
     this.activeTasks.clear();
     this.pool.destroy();
@@ -396,16 +440,16 @@ export class WorkerPool extends EventEmitter {
    * Restart the worker pool
    */
   async restart(): Promise<void> {
-    console.log('🔄 Restarting worker pool...');
+    console.log("🔄 Restarting worker pool...");
     await this.shutdown(10000); // Shorter timeout for restart
-    
+
     // Reset accepting flag
     this.accepting = true;
-    
+
     // Reinitialize the pool with same configuration
     // Note: This is a simplified restart - in production you might want
     // to preserve configuration and state
-    console.log('✅ Worker pool restarted successfully');
+    console.log("✅ Worker pool restarted successfully");
   }
 
   /**
@@ -415,7 +459,7 @@ export class WorkerPool extends EventEmitter {
     healthy: boolean;
     threads: number;
     queueSize: number;
-    memoryPressure: 'low' | 'medium' | 'high';
+    memoryPressure: "low" | "medium" | "high";
     issues: string[];
   } {
     const stats = this.getPoolStats();
@@ -424,20 +468,21 @@ export class WorkerPool extends EventEmitter {
 
     // Check for potential issues
     if (stats.queueSize > stats.threads * 10) {
-      issues.push('Queue size is very high');
+      issues.push("Queue size is very high");
     }
 
     if (resourceUsage.utilization > 0.9) {
-      issues.push('Pool utilization is very high');
+      issues.push("Pool utilization is very high");
     }
 
-    const memoryPressure = resourceUsage.memory.heapUsed / resourceUsage.memory.heapTotal;
-    let memoryPressureLevel: 'low' | 'medium' | 'high' = 'low';
-    if (memoryPressure > 0.8) memoryPressureLevel = 'high';
-    else if (memoryPressure > 0.6) memoryPressureLevel = 'medium';
+    const memoryPressure =
+      resourceUsage.memory.heapUsed / resourceUsage.memory.heapTotal;
+    let memoryPressureLevel: "low" | "medium" | "high" = "low";
+    if (memoryPressure > 0.8) memoryPressureLevel = "high";
+    else if (memoryPressure > 0.6) memoryPressureLevel = "medium";
 
-    if (memoryPressureLevel === 'high') {
-      issues.push('Memory pressure is high');
+    if (memoryPressureLevel === "high") {
+      issues.push("Memory pressure is high");
     }
 
     const healthy = issues.length === 0 && stats.threads > 0;
@@ -447,7 +492,7 @@ export class WorkerPool extends EventEmitter {
       threads: stats.threads,
       queueSize: stats.queueSize,
       memoryPressure: memoryPressureLevel,
-      issues
+      issues,
     };
   }
 
@@ -455,12 +500,12 @@ export class WorkerPool extends EventEmitter {
     for (let i = 0; i < this.pool.threads.length; i++) {
       this.workerStats.set(i, {
         threadId: i,
-        status: 'idle',
+        status: "idle",
         tasksCompleted: 0,
         tasksFailed: 0,
         averageTaskTime: 0,
         memoryUsage: process.memoryUsage(),
-        uptime: Date.now()
+        uptime: Date.now(),
       });
     }
   }
@@ -477,7 +522,11 @@ export class WorkerPool extends EventEmitter {
     }, 30000);
   }
 
-  private updateWorkerStats(taskId: string, success: boolean, duration: number): void {
+  private updateWorkerStats(
+    taskId: string,
+    success: boolean,
+    duration: number,
+  ): void {
     // Update stats for the worker that handled this task
     // Note: This is simplified - in practice you'd track which worker handled which task
     const workerId = Math.floor(Math.random() * this.pool.threads.length); // Placeholder
@@ -486,12 +535,14 @@ export class WorkerPool extends EventEmitter {
     if (stats) {
       if (success) {
         stats.tasksCompleted++;
-        stats.averageTaskTime = (stats.averageTaskTime * (stats.tasksCompleted - 1) + duration) / stats.tasksCompleted;
+        stats.averageTaskTime =
+          (stats.averageTaskTime * (stats.tasksCompleted - 1) + duration) /
+          stats.tasksCompleted;
       } else {
         stats.tasksFailed++;
       }
       stats.memoryUsage = process.memoryUsage();
-      stats.status = 'idle'; // Reset status
+      stats.status = "idle"; // Reset status
     }
   }
 
@@ -503,7 +554,7 @@ export class WorkerPool extends EventEmitter {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
@@ -512,15 +563,15 @@ export const defaultWorkerPool = new WorkerPool();
 export const analysisWorkerPool = new WorkerPool({
   minThreads: 8,
   maxThreads: 16,
-  workerFile: 'analysis-worker.js'
+  workerFile: "analysis-worker.js",
 });
 export const extractionWorkerPool = new WorkerPool({
   minThreads: 4,
   maxThreads: 8,
-  workerFile: 'extraction-worker.js'
+  workerFile: "extraction-worker.js",
 });
 export const generationWorkerPool = new WorkerPool({
   minThreads: 2,
   maxThreads: 4,
-  workerFile: 'generation-worker.js'
+  workerFile: "generation-worker.js",
 });

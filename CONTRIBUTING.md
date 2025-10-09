@@ -100,6 +100,7 @@ pnpm dev
 ```
 
 This will:
+
 - Build all packages in watch mode
 - Start the development server
 - Monitor performance metrics in real-time
@@ -160,6 +161,7 @@ site-generator/
 ```
 
 Each package follows this structure:
+
 ```
 package/
 ├── src/                # Source TypeScript files
@@ -196,6 +198,7 @@ pnpm test:coverage
 ### Test Coverage
 
 We aim for:
+
 - ✅ **80%+ overall coverage**
 - ✅ **90%+ coverage for core utilities**
 - ✅ **100% coverage for critical paths**
@@ -257,6 +260,7 @@ git checkout -b fix/issue-description
 ```
 
 Branch naming conventions:
+
 - `feat/` - New features
 - `fix/` - Bug fixes
 - `docs/` - Documentation changes
@@ -282,6 +286,7 @@ git commit -m "feat: add content quality scoring algorithm"
 ```
 
 Commit message format:
+
 ```
 <type>: <subject>
 
@@ -293,6 +298,7 @@ Commit message format:
 Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 Examples:
+
 - `feat: implement page classification algorithm`
 - `fix: resolve memory leak in worker pool`
 - `docs: update API documentation for ContentAnalyzer`
@@ -306,6 +312,7 @@ git push origin feat/your-feature-name
 ```
 
 Then create a Pull Request on GitHub with:
+
 - Clear title and description
 - Link to related issues (if any)
 - Screenshots (for UI changes)
@@ -331,12 +338,14 @@ This project uses Git LFS **only** for large binary files in the `extracted/` di
 ### What's Tracked by LFS
 
 ✅ **In LFS:**
+
 - Large images: `extracted/**/*.{jpg,png,gif,pdf}`
 - Videos: `extracted/**/*.{mp4,mov,avi}`
 - Audio: `extracted/**/*.{mp3,wav,flac}`
 - Large data files: `extracted/**/*.{sql,csv}`
 
 ❌ **NOT in LFS (regular Git):**
+
 - Configuration files: `package.json`, `tsconfig.json`
 - Lock files: `pnpm-lock.yaml`, `yarn.lock`
 - All `.config.js` and `.config.json` files
@@ -347,11 +356,13 @@ This project uses Git LFS **only** for large binary files in the `extracted/` di
 #### Issue: Getting LFS Pointer Files Instead of Content
 
 **Symptoms:**
+
 - `package.json` contains `version https://git-lfs.github.com/spec/v1`
 - `pnpm install` fails with JSON parse errors
 - Config files appear to be pointer files
 
 **Solution:**
+
 ```bash
 # This should NOT happen with the current setup
 # If it does, the repository needs to be migrated
@@ -361,9 +372,11 @@ This project uses Git LFS **only** for large binary files in the `extracted/` di
 #### Issue: LFS Not Installed
 
 **Symptoms:**
+
 - Error: `git-lfs filter required but not installed`
 
 **Solution:**
+
 ```bash
 # Install Git LFS
 # macOS
@@ -395,4 +408,3 @@ By contributing to this project, you agree that your contributions will be licen
 ---
 
 Thank you for contributing to Site Generator! 🎉
-

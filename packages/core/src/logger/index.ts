@@ -1,5 +1,5 @@
-import { LogEntry } from '../types';
-import { EventEmitter } from 'events';
+import { LogEntry } from "../types/index.js";
+import { EventEmitter } from "events";
 
 export class Logger extends EventEmitter {
   private static instance: Logger;
@@ -19,22 +19,27 @@ export class Logger extends EventEmitter {
   }
 
   debug(message: string, metadata?: Record<string, any>): void {
-    this.log('debug', message, metadata);
+    this.log("debug", message, metadata);
   }
 
   info(message: string, metadata?: Record<string, any>): void {
-    this.log('info', message, metadata);
+    this.log("info", message, metadata);
   }
 
   warn(message: string, metadata?: Record<string, any>): void {
-    this.log('warn', message, metadata);
+    this.log("warn", message, metadata);
   }
 
   error(message: string, error?: Error, metadata?: Record<string, any>): void {
-    this.log('error', message, metadata, error);
+    this.log("error", message, metadata, error);
   }
 
-  private log(level: LogEntry['level'], message: string, metadata?: Record<string, any>, error?: Error): void {
+  private log(
+    level: LogEntry["level"],
+    message: string,
+    metadata?: Record<string, any>,
+    error?: Error,
+  ): void {
     if (!this.enabled) return;
 
     const logEntry: LogEntry = {
@@ -42,7 +47,7 @@ export class Logger extends EventEmitter {
       message,
       timestamp: Date.now(),
       metadata,
-      error
+      error,
     };
 
     this.logs.push(logEntry);
@@ -53,28 +58,36 @@ export class Logger extends EventEmitter {
     }
 
     // Emit log event
-    this.emit('log', logEntry);
+    this.emit("log", logEntry);
 
     // Also emit specific level events
     this.emit(level, logEntry);
 
     // Console output for certain levels
-    if (level === 'error') {
+    if (level === "error") {
       console.error(message, error, metadata);
-    } else if (level === 'warn') {
+    } else if (level === "warn") {
       console.warn(message, metadata);
-    } else if (level === 'info') {
+    } else if (level === "info") {
       console.info(message, metadata);
-    } else if (level === 'debug') {
+    } else if (level === "debug") {
       console.debug(message, metadata);
     }
   }
 
-  getLogs(level?: LogEntry['level'], filter?: { component?: string }, limit?: number): LogEntry[] {
-    let filteredLogs = level ? this.logs.filter(log => log.level === level) : this.logs;
+  getLogs(
+    level?: LogEntry["level"],
+    filter?: { component?: string },
+    limit?: number,
+  ): LogEntry[] {
+    let filteredLogs = level
+      ? this.logs.filter((log) => log.level === level)
+      : this.logs;
 
     if (filter?.component) {
-      filteredLogs = filteredLogs.filter(log => log.metadata?.component === filter.component);
+      filteredLogs = filteredLogs.filter(
+        (log) => log.metadata?.component === filter.component,
+      );
     }
 
     return limit ? filteredLogs.slice(-limit) : filteredLogs;
@@ -111,10 +124,10 @@ export class Logger extends EventEmitter {
       debug: 0,
       info: 0,
       warn: 0,
-      error: 0
+      error: 0,
     };
 
-    this.logs.forEach(log => {
+    this.logs.forEach((log) => {
       stats[log.level]++;
     });
 

@@ -1,15 +1,25 @@
-import { EventEmitter } from 'events';
-import * as cheerio from 'cheerio';
-import TurndownService from 'turndown';
-import { URL } from 'url';
-import { logger } from '@site-generator/core';
-import { HtmlParser } from './html-parser';
-import { MarkdownConverter } from './markdown-converter';
-import { MediaExtractor } from './media-extractor';
-import { UrlNormalizer } from './url-normalizer';
-import { ContentFilter } from './content-filter';
-import { JSDOM } from 'jsdom';
-import createDOMPurify from 'dompurify';
+import { EventEmitter } from "events";
+import * as cheerio from "cheerio";
+import TurndownService from "turndown";
+import { URL } from "url";
+// Temporarily import logger directly to avoid worker initialization issues
+// import { logger } from '@site-generator/core';
+const logger = {
+  info: (...args: any[]) => console.log("[INFO]", ...args),
+  error: (...args: any[]) => console.error("[ERROR]", ...args),
+  warn: (...args: any[]) => console.warn("[WARN]", ...args),
+  debug: (...args: any[]) => console.debug("[DEBUG]", ...args),
+};
+import { HtmlParser } from "./html-parser.js";
+import { MarkdownConverter } from "./markdown-converter.js";
+import { MediaExtractor } from "./media-extractor.js";
+import { UrlNormalizer } from "./url-normalizer.js";
+import { ContentFilter } from "./content-filter.js";
+import { BrowserManager } from "./browser/BrowserManager.js";
+import { PlaywrightRenderer } from "./renderers/PlaywrightRenderer.js";
+import { checkRobotsTxt } from "./utils/robotsTxt.js";
+import { JSDOM } from "jsdom";
+import createDOMPurify from "dompurify";
 
 export interface ExtractionOptions {
   extractImages?: boolean;
@@ -25,6 +35,9 @@ export interface ExtractionOptions {
   userAgent?: string;
   followRedirects?: boolean;
   maxRedirects?: number;
+  usePlaywright?: boolean; // Enable Playwright rendering for SPAs
+  respectRobotsTxt?: boolean; // Check robots.txt before extraction
+  retryAttempts?: number; // Number of retry attempts for failed extractions
 }
 
 export interface ExtractedContent {
@@ -74,19 +87,21 @@ export interface ExtractionResult {
 
 export declare interface ContentExtractor {
   on<U extends keyof ExtractorEvents>(
-    event: U, listener: ExtractorEvents[U]
+    event: U,
+    listener: ExtractorEvents[U],
   ): this;
 
   emit<U extends keyof ExtractorEvents>(
-    event: U, ...args: Parameters<ExtractorEvents[U]>
+    event: U,
+    ...args: Parameters<ExtractorEvents[U]>
   ): boolean;
 }
 
 export interface ExtractorEvents {
-  'content-extracted': (result: ExtractionResult) => void;
-  'extraction-error': (error: Error, url: string) => void;
-  'extraction-progress': (url: string, progress: number) => void;
-  'extraction-completed': (results: ExtractionResult[]) => void;
+  "content-extracted": (result: ExtractionResult) => void;
+  "extraction-error": (error: Error, url: string) => void;
+  "extraction-progress": (url: string, progress: number) => void;
+  "extraction-completed": (results: ExtractionResult[]) => void;
 }
 
 export class ContentExtractor extends EventEmitter {
@@ -96,11 +111,14 @@ export class ContentExtractor extends EventEmitter {
   private urlNormalizer: UrlNormalizer;
   private contentFilter: ContentFilter;
   private turndownService: TurndownService;
-  private extractionQueue: Array<{ url: string; options?: ExtractionOptions }> = [];
+  private extractionQueue: Array<{ url: string; options?: ExtractionOptions }> =
+    [];
   private activeExtractions: Set<string> = new Set();
   private abortController?: AbortController;
   private defaultOptions: ExtractionOptions;
   private domPurify: ReturnType<typeof createDOMPurify>;
+  private browserManager?: BrowserManager;
+  private playwrightRenderer?: PlaywrightRenderer;
 
   constructor(options: ExtractionOptions = {}) {
     super();
@@ -113,29 +131,38 @@ export class ContentExtractor extends EventEmitter {
     this.contentFilter = new ContentFilter(options);
 
     this.turndownService = new TurndownService({
-      headingStyle: 'atx',
-      hr: '---',
-      bulletListMarker: '-',
-      codeBlockStyle: 'fenced',
-      fence: '```',
-      emDelimiter: '*',
-      strongDelimiter: '**',
-      linkStyle: 'inlined',
-      linkReferenceStyle: 'full'
+      headingStyle: "atx",
+      hr: "---",
+      bulletListMarker: "-",
+      codeBlockStyle: "fenced",
+      fence: "```",
+      emDelimiter: "*",
+      strongDelimiter: "**",
+      linkStyle: "inlined",
+      linkReferenceStyle: "full",
     });
 
     // Configure turndown rules
     this.configureTurndown();
 
     // Initialize DOMPurify for HTML sanitization
-    const window = new JSDOM('').window;
+    const window = new JSDOM("").window;
     this.domPurify = createDOMPurify(window);
+
+    // Initialize Playwright components if usePlaywright is true
+    if (options.usePlaywright) {
+      this.browserManager = new BrowserManager();
+      this.playwrightRenderer = new PlaywrightRenderer(this.browserManager);
+    }
   }
 
   /**
    * Extract content from a single URL
    */
-  async extract(url: string, options: ExtractionOptions = {}): Promise<ExtractionResult> {
+  async extract(
+    url: string,
+    options: ExtractionOptions = {},
+  ): Promise<ExtractionResult> {
     const startTime = Date.now();
     const normalizedUrl = this.urlNormalizer.normalize(url);
 
@@ -146,30 +173,73 @@ export class ContentExtractor extends EventEmitter {
       logger.warn(`Extraction already in progress for ${normalizedUrl}`);
       return {
         success: false,
-        error: 'Extraction already in progress for this URL'
+        error: "Extraction already in progress for this URL",
       };
     }
 
     this.activeExtractions.add(normalizedUrl);
-    this.emit('extraction-progress', normalizedUrl, 0);
+    this.emit("extraction-progress", normalizedUrl, 0);
 
     try {
-      logger.info(`Starting extraction for ${normalizedUrl}`, { url: normalizedUrl });
+      logger.info(`Starting extraction for ${normalizedUrl}`, {
+        url: normalizedUrl,
+      });
 
-      // Parse HTML
-      this.emit('extraction-progress', normalizedUrl, 25);
-      const htmlContent = await this.htmlParser.parse(normalizedUrl, options);
+      // Check robots.txt if respectRobotsTxt is enabled
+      if (mergedOptions.respectRobotsTxt) {
+        const robotsCheck = await checkRobotsTxt(normalizedUrl);
+        if (!robotsCheck.allowed) {
+          return {
+            success: false,
+            error: robotsCheck.reason || "Blocked by robots.txt",
+          };
+        }
+      }
 
-      if (!htmlContent.success) {
-        throw new Error(htmlContent.error || 'Failed to parse HTML');
+      let htmlContent;
+
+      // Use Playwright if enabled, otherwise use standard parser
+      if (mergedOptions.usePlaywright && this.playwrightRenderer) {
+        logger.info(`Using Playwright renderer for ${normalizedUrl}`);
+        const retryAttempts = mergedOptions.retryAttempts || 3;
+
+        for (let attempt = 0; attempt < retryAttempts; attempt++) {
+          try {
+            const renderResult =
+              await this.playwrightRenderer.render(normalizedUrl);
+            htmlContent = {
+              success: true,
+              html: renderResult.html,
+              title: renderResult.title,
+              url: renderResult.url,
+            };
+            break;
+          } catch (error) {
+            if (attempt === retryAttempts - 1) {
+              throw error;
+            }
+            // Exponential backoff
+            await new Promise((resolve) =>
+              setTimeout(resolve, 2000 * Math.pow(2, attempt)),
+            );
+          }
+        }
+      } else {
+        // Parse HTML using standard parser
+        this.emit("extraction-progress", normalizedUrl, 25);
+        htmlContent = await this.htmlParser.parse(normalizedUrl, options);
+      }
+
+      if (!htmlContent || !htmlContent.success) {
+        throw new Error(htmlContent?.error || "Failed to parse HTML");
       }
 
       // Extract metadata
-      this.emit('extraction-progress', normalizedUrl, 50);
+      this.emit("extraction-progress", normalizedUrl, 50);
       const metadata = this.extractMetadata(htmlContent.html!, normalizedUrl);
 
       // Convert to markdown
-      this.emit('extraction-progress', normalizedUrl, 75);
+      this.emit("extraction-progress", normalizedUrl, 75);
       const markdown = this.markdownConverter.convert(htmlContent.html!);
 
       // Extract media and links
@@ -180,8 +250,14 @@ export class ContentExtractor extends EventEmitter {
       let filteredMarkdown = this.contentFilter.filter(markdown);
 
       // Apply max content length after filtering
-      if (mergedOptions.maxContentLength && filteredMarkdown.length > mergedOptions.maxContentLength) {
-        filteredMarkdown = filteredMarkdown.substring(0, mergedOptions.maxContentLength);
+      if (
+        mergedOptions.maxContentLength &&
+        filteredMarkdown.length > mergedOptions.maxContentLength
+      ) {
+        filteredMarkdown = filteredMarkdown.substring(
+          0,
+          mergedOptions.maxContentLength,
+        );
       }
 
       // Extract structured data
@@ -195,7 +271,7 @@ export class ContentExtractor extends EventEmitter {
 
       const content: ExtractedContent = {
         url: normalizedUrl,
-        title: metadata['title'] || 'Untitled',
+        title: metadata["title"] || "Untitled",
         markdown: filteredMarkdown,
         html: this.sanitizeHtml(htmlContent.html!),
         text,
@@ -206,7 +282,7 @@ export class ContentExtractor extends EventEmitter {
         codeBlocks,
         extractionTime: Date.now() - startTime,
         wordCount,
-        readingTime
+        readingTime,
       };
 
       const result: ExtractionResult = {
@@ -217,36 +293,45 @@ export class ContentExtractor extends EventEmitter {
           extractionTime: content.extractionTime,
           contentLength: filteredMarkdown.length,
           imagesExtracted: images.length,
-          linksExtracted: links.length
-        }
+          linksExtracted: links.length,
+        },
       };
 
-      this.emit('extraction-progress', normalizedUrl, 100);
-      this.emit('content-extracted', result);
+      this.emit("extraction-progress", normalizedUrl, 100);
+      this.emit("content-extracted", result);
 
       logger.info(`Successfully extracted content from ${normalizedUrl}`, {
         url: normalizedUrl,
         wordCount,
         readingTime,
         images: images.length,
-        links: links.length
+        links: links.length,
       });
 
       return result;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       const result: ExtractionResult = {
         success: false,
-        error: errorMessage
+        error: errorMessage,
       };
 
-      this.emit('extraction-error', error instanceof Error ? error : new Error(errorMessage), normalizedUrl);
-      
+      this.emit(
+        "extraction-error",
+        error instanceof Error ? error : new Error(errorMessage),
+        normalizedUrl,
+      );
+
       // Log error safely without throwing
       try {
-        logger.error(`Failed to extract content from ${normalizedUrl}`, error instanceof Error ? error : new Error(errorMessage), {
-          url: normalizedUrl
-        });
+        logger.error(
+          `Failed to extract content from ${normalizedUrl}`,
+          error instanceof Error ? error : new Error(errorMessage),
+          {
+            url: normalizedUrl,
+          },
+        );
       } catch {
         // Ignore logger errors
       }
@@ -260,15 +345,20 @@ export class ContentExtractor extends EventEmitter {
   /**
    * Extract content from multiple URLs
    */
-  async extractMultiple(urls: string[], options: ExtractionOptions = {}): Promise<ExtractionResult[]> {
+  async extractMultiple(
+    urls: string[],
+    options: ExtractionOptions = {},
+  ): Promise<ExtractionResult[]> {
     const results: ExtractionResult[] = [];
     const batchSize = options.maxConcurrency || 5;
 
-    logger.info(`Starting batch extraction of ${urls.length} URLs`, { count: urls.length });
+    logger.info(`Starting batch extraction of ${urls.length} URLs`, {
+      count: urls.length,
+    });
 
     for (let i = 0; i < urls.length; i += batchSize) {
       const batch = urls.slice(i, i + batchSize);
-      const batchPromises = batch.map(url => this.extract(url, options));
+      const batchPromises = batch.map((url) => this.extract(url, options));
       const batchResults = await Promise.all(batchPromises);
 
       results.push(...batchResults);
@@ -279,8 +369,11 @@ export class ContentExtractor extends EventEmitter {
       }
     }
 
-    this.emit('extraction-completed', results);
-    logger.info(`Completed batch extraction`, { total: urls.length, successful: results.filter(r => r.success).length });
+    this.emit("extraction-completed", results);
+    logger.info(`Completed batch extraction`, {
+      total: urls.length,
+      successful: results.filter((r) => r.success).length,
+    });
 
     return results;
   }
@@ -288,7 +381,9 @@ export class ContentExtractor extends EventEmitter {
   /**
    * Extract content from URLs in queue
    */
-  async extractFromQueue(options: ExtractionOptions = {}): Promise<ExtractionResult[]> {
+  async extractFromQueue(
+    options: ExtractionOptions = {},
+  ): Promise<ExtractionResult[]> {
     const results: ExtractionResult[] = [];
 
     while (this.extractionQueue.length > 0) {
@@ -306,7 +401,9 @@ export class ContentExtractor extends EventEmitter {
   queueExtraction(url: string, options?: ExtractionOptions): void {
     const normalizedUrl = this.urlNormalizer.normalize(url);
     this.extractionQueue.push({ url: normalizedUrl, options: options || {} });
-    logger.info(`Queued extraction for ${normalizedUrl}`, { url: normalizedUrl });
+    logger.info(`Queued extraction for ${normalizedUrl}`, {
+      url: normalizedUrl,
+    });
   }
 
   /**
@@ -322,7 +419,7 @@ export class ContentExtractor extends EventEmitter {
       queued: this.extractionQueue.length,
       active: this.activeExtractions.size,
       completed: 0, // Would need to track this in a real implementation
-      failed: 0
+      failed: 0,
     };
   }
 
@@ -335,7 +432,7 @@ export class ContentExtractor extends EventEmitter {
     }
     this.extractionQueue.length = 0;
     this.activeExtractions.clear();
-    logger.info('Aborted all extractions');
+    logger.info("Aborted all extractions");
   }
 
   /**
@@ -343,23 +440,24 @@ export class ContentExtractor extends EventEmitter {
    */
   private configureTurndown(): void {
     // Add custom rules for better markdown conversion
-    this.turndownService.addRule('codeBlocks', {
+    this.turndownService.addRule("codeBlocks", {
       filter: (node: any) => {
-        return node.nodeName === 'PRE' && node.firstChild?.nodeName === 'CODE';
+        return node.nodeName === "PRE" && node.firstChild?.nodeName === "CODE";
       },
       replacement: (content: any, node: any) => {
         const codeElement = node.firstChild as Element;
-        const language = codeElement.getAttribute('class')?.replace('language-', '') || '';
+        const language =
+          codeElement.getAttribute("class")?.replace("language-", "") || "";
         return `\`\`\`${language}\n${content}\n\`\`\``;
-      }
+      },
     });
 
-    this.turndownService.addRule('tables', {
-      filter: 'table',
+    this.turndownService.addRule("tables", {
+      filter: "table",
       replacement: (content: any, node: any) => {
         // Let the markdown converter handle tables
         return content;
-      }
+      },
     });
   }
 
@@ -371,9 +469,9 @@ export class ContentExtractor extends EventEmitter {
     const metadata: Record<string, any> = {};
 
     // Extract meta tags
-    $('meta').each((_, element) => {
-      const name = $(element).attr('name') || $(element).attr('property');
-      const content = $(element).attr('content');
+    $("meta").each((_, element) => {
+      const name = $(element).attr("name") || $(element).attr("property");
+      const content = $(element).attr("content");
 
       if (name && content) {
         metadata[name] = content;
@@ -382,36 +480,43 @@ export class ContentExtractor extends EventEmitter {
 
     // Extract title and clean it (handle malformed HTML)
     // Prefer h1 in article/main over title tag for better content extraction
-    let title = $('article h1, main h1').first().text().trim() || 
-                $('h1').first().text().trim() ||
-                $('title').text().trim();
+    let title =
+      $("article h1, main h1").first().text().trim() ||
+      $("h1").first().text().trim() ||
+      $("title").text().trim();
     // Remove any HTML tags that leaked through due to malformed HTML
-    title = title.replace(/<[^>]*>/g, '').trim();
-    metadata['title'] = title;
+    title = title.replace(/<[^>]*>/g, "").trim();
+    metadata["title"] = title;
 
     // Extract description
-    if (!metadata['description']) {
-      metadata['description'] = $('meta[name="description"]').attr('content') ||
-                           $('meta[property="og:description"]').attr('content') || '';
+    if (!metadata["description"]) {
+      metadata["description"] =
+        $('meta[name="description"]').attr("content") ||
+        $('meta[property="og:description"]').attr("content") ||
+        "";
     }
 
     // Extract author
-    if (!metadata['author']) {
-      metadata['author'] = $('meta[name="author"]').attr('content') ||
-                       $('meta[property="article:author"]').attr('content') || '';
+    if (!metadata["author"]) {
+      metadata["author"] =
+        $('meta[name="author"]').attr("content") ||
+        $('meta[property="article:author"]').attr("content") ||
+        "";
     }
 
     // Extract published date
-    if (!metadata['published']) {
-      metadata['published'] = $('meta[property="article:published_time"]').attr('content') ||
-                          $('time[datetime]').attr('datetime') || '';
+    if (!metadata["published"]) {
+      metadata["published"] =
+        $('meta[property="article:published_time"]').attr("content") ||
+        $("time[datetime]").attr("datetime") ||
+        "";
     }
 
     // Extract structured data
     const jsonLd = $('script[type="application/ld+json"]').html();
     if (jsonLd) {
       try {
-        metadata['structuredData'] = JSON.parse(jsonLd);
+        metadata["structuredData"] = JSON.parse(jsonLd);
       } catch (e) {
         // Ignore invalid JSON-LD
       }
@@ -423,36 +528,42 @@ export class ContentExtractor extends EventEmitter {
   /**
    * Extract tables from HTML
    */
-  private extractTables(html: string): ExtractedContent['tables'] {
+  private extractTables(html: string): ExtractedContent["tables"] {
     const $ = cheerio.load(html);
-    const tables: ExtractedContent['tables'] = [];
+    const tables: ExtractedContent["tables"] = [];
 
-    $('table').each((_, tableElement) => {
+    $("table").each((_, tableElement) => {
       const headers: string[] = [];
       const rows: string[][] = [];
 
       // Extract headers
-      $(tableElement).find('th').each((_, th) => {
-        headers.push($(th).text().trim());
-      });
-
-      // Extract rows
-      $(tableElement).find('tr').each((_, tr) => {
-        const row: string[] = [];
-        $(tr).find('td').each((_, td) => {
-          row.push($(td).text().trim());
+      $(tableElement)
+        .find("th")
+        .each((_, th) => {
+          headers.push($(th).text().trim());
         });
 
-        if (row.length > 0) {
-          rows.push(row);
-        }
-      });
+      // Extract rows
+      $(tableElement)
+        .find("tr")
+        .each((_, tr) => {
+          const row: string[] = [];
+          $(tr)
+            .find("td")
+            .each((_, td) => {
+              row.push($(td).text().trim());
+            });
+
+          if (row.length > 0) {
+            rows.push(row);
+          }
+        });
 
       if (headers.length > 0 || rows.length > 0) {
         tables.push({
           headers,
           rows,
-          caption: $(tableElement).find('caption').text().trim()
+          caption: $(tableElement).find("caption").text().trim(),
         });
       }
     });
@@ -463,19 +574,21 @@ export class ContentExtractor extends EventEmitter {
   /**
    * Extract code blocks from HTML
    */
-  private extractCodeBlocks(html: string): ExtractedContent['codeBlocks'] {
+  private extractCodeBlocks(html: string): ExtractedContent["codeBlocks"] {
     const $ = cheerio.load(html);
-    const codeBlocks: ExtractedContent['codeBlocks'] = [];
+    const codeBlocks: ExtractedContent["codeBlocks"] = [];
 
-    $('pre code').each((_, codeElement) => {
+    $("pre code").each((_, codeElement) => {
       const code = $(codeElement).text();
-      const className = $(codeElement).attr('class') || '';
-      const language = className.replace('language-', '');
+      const className = $(codeElement).attr("class") || "";
+      const language = className.replace("language-", "");
 
       codeBlocks.push({
         language,
         code,
-        ...(($(codeElement).attr('data-file')) && { file: $(codeElement).attr('data-file')! })
+        ...($(codeElement).attr("data-file") && {
+          file: $(codeElement).attr("data-file")!,
+        }),
       });
     });
 
@@ -487,7 +600,7 @@ export class ContentExtractor extends EventEmitter {
    */
   private extractText(html: string): string {
     const $ = cheerio.load(html);
-    $('script, style, nav, header, footer').remove(); // Remove non-content elements
+    $("script, style, nav, header, footer").remove(); // Remove non-content elements
     return $.text().trim();
   }
 
@@ -495,14 +608,14 @@ export class ContentExtractor extends EventEmitter {
    * Count words in text
    */
   private countWords(text: string): number {
-    return text.split(/\s+/).filter(word => word.length > 0).length;
+    return text.split(/\s+/).filter((word) => word.length > 0).length;
   }
 
   /**
    * Delay helper
    */
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -510,11 +623,43 @@ export class ContentExtractor extends EventEmitter {
    */
   private sanitizeHtml(html: string): string {
     return this.domPurify.sanitize(html, {
-      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 
-                     'ul', 'ol', 'li', 'a', 'img', 'table', 'tr', 'td', 'th', 'code', 'pre', 'blockquote'],
-      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class'],
-      ALLOW_DATA_ATTR: false
+      ALLOWED_TAGS: [
+        "p",
+        "br",
+        "strong",
+        "em",
+        "u",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "ul",
+        "ol",
+        "li",
+        "a",
+        "img",
+        "table",
+        "tr",
+        "td",
+        "th",
+        "code",
+        "pre",
+        "blockquote",
+      ],
+      ALLOWED_ATTR: ["href", "src", "alt", "title", "class"],
+      ALLOW_DATA_ATTR: false,
     });
+  }
+
+  /**
+   * Close browser and cleanup resources
+   */
+  async close(): Promise<void> {
+    if (this.playwrightRenderer) {
+      await this.playwrightRenderer.close();
+    }
   }
 }
 

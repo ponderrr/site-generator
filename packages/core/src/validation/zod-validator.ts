@@ -1,12 +1,16 @@
 /**
  * @fileoverview Zod-based Validation System
- * 
+ *
  * Modern validation system using Zod library instead of custom implementation.
  * Provides better type safety, performance, and maintainability.
  */
 
-import { z } from 'zod';
-import { ValidationResult, ValidationError, ValidationWarning } from '../types';
+import { z } from "zod";
+import {
+  ValidationResult,
+  ValidationError,
+  ValidationWarning,
+} from "../types/index.js";
 
 /**
  * Enhanced validation result with Zod integration
@@ -38,29 +42,29 @@ export class ZodValidator {
 
     // Create a combined schema from all field schemas
     const combinedSchema = this.createCombinedSchema();
-    
+
     try {
       const result = combinedSchema.safeParse(data);
-      
+
       if (!result.success) {
         zodIssues.push(...result.error.issues);
-        
+
         // Convert Zod issues to our validation errors
         for (const issue of result.error.issues) {
           errors.push({
-            field: issue.path.join('.'),
+            field: issue.path.join("."),
             message: issue.message,
             value: this.getNestedValue(data, issue.path),
-            code: issue.code.toUpperCase()
+            code: issue.code.toUpperCase(),
           });
         }
       }
     } catch (error) {
       errors.push({
-        field: 'root',
+        field: "root",
         message: `Validation failed: ${error}`,
         value: data,
-        code: 'VALIDATION_ERROR'
+        code: "VALIDATION_ERROR",
       });
     }
 
@@ -68,7 +72,7 @@ export class ZodValidator {
       valid: errors.length === 0,
       errors,
       warnings,
-      zodIssues
+      zodIssues,
     };
   }
 
@@ -77,13 +81,13 @@ export class ZodValidator {
    */
   validateField(field: string, value: any, context?: any): ZodValidationResult {
     const schema = this.schemas.get(field);
-    
+
     if (!schema) {
       return {
         valid: true,
         errors: [],
         warnings: [],
-        zodIssues: []
+        zodIssues: [],
       };
     }
 
@@ -93,16 +97,16 @@ export class ZodValidator {
 
     try {
       const result = schema.safeParse(value);
-      
+
       if (!result.success) {
         zodIssues.push(...result.error.issues);
-        
+
         for (const issue of result.error.issues) {
           errors.push({
             field,
             message: issue.message,
             value,
-            code: issue.code.toUpperCase()
+            code: issue.code.toUpperCase(),
           });
         }
       }
@@ -111,7 +115,7 @@ export class ZodValidator {
         field,
         message: `Field validation failed: ${error}`,
         value,
-        code: 'VALIDATION_ERROR'
+        code: "VALIDATION_ERROR",
       });
     }
 
@@ -119,7 +123,7 @@ export class ZodValidator {
       valid: errors.length === 0,
       errors,
       warnings,
-      zodIssues
+      zodIssues,
     };
   }
 
@@ -128,11 +132,11 @@ export class ZodValidator {
    */
   private createCombinedSchema(): z.ZodSchema {
     const shape: Record<string, z.ZodSchema> = {};
-    
+
     for (const [field, schema] of this.schemas) {
       shape[field] = schema;
     }
-    
+
     return z.object(shape);
   }
 
@@ -172,65 +176,80 @@ export const CommonSchemas = {
   /**
    * URL validation schema
    */
-  url: z.string().url('Invalid URL format'),
-  
+  url: z.string().url("Invalid URL format"),
+
   /**
    * Email validation schema
    */
-  email: z.string().email('Invalid email format'),
-  
+  email: z.string().email("Invalid email format"),
+
   /**
    * Required string schema
    */
-  requiredString: (minLength = 1, maxLength = 1000) => 
-    z.string().min(minLength, `Minimum length is ${minLength}`).max(maxLength, `Maximum length is ${maxLength}`),
-  
+  requiredString: (minLength = 1, maxLength = 1000) =>
+    z
+      .string()
+      .min(minLength, `Minimum length is ${minLength}`)
+      .max(maxLength, `Maximum length is ${maxLength}`),
+
   /**
    * Optional string schema
    */
-  optionalString: (minLength = 1, maxLength = 1000) => 
-    z.string().min(minLength, `Minimum length is ${minLength}`).max(maxLength, `Maximum length is ${maxLength}`).optional(),
-  
+  optionalString: (minLength = 1, maxLength = 1000) =>
+    z
+      .string()
+      .min(minLength, `Minimum length is ${minLength}`)
+      .max(maxLength, `Maximum length is ${maxLength}`)
+      .optional(),
+
   /**
    * Positive number schema
    */
-  positiveNumber: z.number().positive('Must be a positive number'),
-  
+  positiveNumber: z.number().positive("Must be a positive number"),
+
   /**
    * Integer schema
    */
-  integer: z.number().int('Must be an integer'),
-  
+  integer: z.number().int("Must be an integer"),
+
   /**
    * Boolean schema
    */
   boolean: z.boolean(),
-  
+
   /**
    * Array schema with length constraints
    */
-  array: (minLength = 0, maxLength = 1000) => 
-    z.array(z.any()).min(minLength, `Minimum array length is ${minLength}`).max(maxLength, `Maximum array length is ${maxLength}`),
-  
+  array: (minLength = 0, maxLength = 1000) =>
+    z
+      .array(z.any())
+      .min(minLength, `Minimum array length is ${minLength}`)
+      .max(maxLength, `Maximum array length is ${maxLength}`),
+
   /**
    * Unique array schema
    */
-  uniqueArray: (schema: z.ZodSchema) => 
-    z.array(schema).refine((arr) => arr.length === new Set(arr).size, 'Array must contain unique items'),
-  
+  uniqueArray: (schema: z.ZodSchema) =>
+    z
+      .array(schema)
+      .refine(
+        (arr) => arr.length === new Set(arr).size,
+        "Array must contain unique items",
+      ),
+
   /**
    * Object schema with required fields
    */
   object: (requiredFields: string[], allowExtra = true) => {
     const shape: Record<string, z.ZodSchema> = {};
-    
+
     for (const field of requiredFields) {
       shape[field] = z.any();
     }
-    
+
     const baseSchema = z.object(shape);
     return allowExtra ? baseSchema.passthrough() : baseSchema.strict();
-  }
+  },
 };
 
 /**
@@ -241,7 +260,7 @@ export class URLValidator {
 
   constructor() {
     this.validator = new ZodValidator();
-    this.validator.addSchema('url', CommonSchemas.url);
+    this.validator.addSchema("url", CommonSchemas.url);
   }
 
   validate(url: string): ZodValidationResult {
@@ -254,7 +273,7 @@ export class EmailValidator {
 
   constructor() {
     this.validator = new ZodValidator();
-    this.validator.addSchema('email', CommonSchemas.email);
+    this.validator.addSchema("email", CommonSchemas.email);
   }
 
   validate(email: string): ZodValidationResult {
@@ -267,7 +286,7 @@ export class ConfigValidator {
 
   constructor() {
     this.validator = new ZodValidator();
-    
+
     // Define configuration schema
     const configSchema = z.object({
       source: CommonSchemas.url,
@@ -275,17 +294,19 @@ export class ConfigValidator {
       baseUrl: CommonSchemas.url,
       title: CommonSchemas.optionalString(1, 200),
       description: CommonSchemas.optionalString(1, 500),
-      build: z.object({
-        concurrency: z.number().int().min(1).max(100),
-        timeout: z.number().min(1000).max(300000)
-      }).optional()
+      build: z
+        .object({
+          concurrency: z.number().int().min(1).max(100),
+          timeout: z.number().min(1000).max(300000),
+        })
+        .optional(),
     });
 
-    this.validator.addSchema('config', configSchema);
+    this.validator.addSchema("config", configSchema);
   }
 
   validate(config: any): ZodValidationResult {
-    return this.validator.validateField('config', config);
+    return this.validator.validateField("config", config);
   }
 }
 
@@ -296,12 +317,14 @@ export class ValidationMigrationHelper {
   /**
    * Convert old validation result to Zod-compatible format
    */
-  static migrateValidationResult(oldResult: ValidationResult): ZodValidationResult {
+  static migrateValidationResult(
+    oldResult: ValidationResult,
+  ): ZodValidationResult {
     return {
       valid: oldResult.valid,
       errors: oldResult.errors,
       warnings: oldResult.warnings,
-      zodIssues: []
+      zodIssues: [],
     };
   }
 
@@ -310,30 +333,35 @@ export class ValidationMigrationHelper {
    */
   static createZodSchemaFromRule(ruleType: string, options: any): z.ZodSchema {
     switch (ruleType) {
-      case 'required':
-        return z.any().refine(val => val !== null && val !== undefined && val !== '', 'This field is required');
-      
-      case 'string':
+      case "required":
+        return z
+          .any()
+          .refine(
+            (val) => val !== null && val !== undefined && val !== "",
+            "This field is required",
+          );
+
+      case "string":
         return z.string();
-      
-      case 'number':
+
+      case "number":
         return z.number();
-      
-      case 'boolean':
+
+      case "boolean":
         return z.boolean();
-      
-      case 'array':
+
+      case "array":
         return z.array(z.any());
-      
-      case 'object':
+
+      case "object":
         return z.object({});
-      
-      case 'email':
+
+      case "email":
         return CommonSchemas.email;
-      
-      case 'url':
+
+      case "url":
         return CommonSchemas.url;
-      
+
       default:
         return z.any();
     }

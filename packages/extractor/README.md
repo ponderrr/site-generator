@@ -23,27 +23,27 @@ pnpm add @site-generator/extractor
 ### Basic Extraction
 
 ```typescript
-import { ContentExtractor } from '@site-generator/extractor';
+import { ContentExtractor } from "@site-generator/extractor";
 
 const extractor = new ContentExtractor({
   includeImages: true,
   includeLinks: true,
   maxDepth: 3,
-  timeout: 30000
+  timeout: 30000,
 });
 
-const result = await extractor.extract('https://example.com');
+const result = await extractor.extract("https://example.com");
 ```
 
 ### HTML Parsing
 
 ```typescript
-import { HTMLParser } from '@site-generator/extractor';
+import { HTMLParser } from "@site-generator/extractor";
 
 const parser = new HTMLParser({
   removeScripts: true,
   removeStyles: false,
-  preserveFormatting: true
+  preserveFormatting: true,
 });
 
 const parsed = parser.parse(htmlContent);
@@ -52,12 +52,12 @@ const parsed = parser.parse(htmlContent);
 ### Markdown Conversion
 
 ```typescript
-import { MarkdownConverter } from '@site-generator/extractor';
+import { MarkdownConverter } from "@site-generator/extractor";
 
 const converter = new MarkdownConverter({
-  headingStyle: 'atx',
-  bulletListMarker: '-',
-  codeBlockStyle: 'fenced'
+  headingStyle: "atx",
+  bulletListMarker: "-",
+  codeBlockStyle: "fenced",
 });
 
 const markdown = converter.convert(htmlContent);
@@ -66,13 +66,13 @@ const markdown = converter.convert(htmlContent);
 ### Media Extraction
 
 ```typescript
-import { MediaExtractor } from '@site-generator/extractor';
+import { MediaExtractor } from "@site-generator/extractor";
 
 const mediaExtractor = new MediaExtractor({
   downloadImages: true,
   optimizeImages: true,
   maxImageSize: 1024 * 1024, // 1MB
-  supportedFormats: ['jpg', 'png', 'webp']
+  supportedFormats: ["jpg", "png", "webp"],
 });
 
 const media = await mediaExtractor.extract(url, htmlContent);
@@ -107,9 +107,9 @@ interface ExtractionConfig {
     cleanWhitespace: boolean;
   };
   markdown: {
-    headingStyle: 'atx' | 'setext';
-    bulletListMarker: '-' | '*' | '+';
-    codeBlockStyle: 'fenced' | 'indented';
+    headingStyle: "atx" | "setext";
+    bulletListMarker: "-" | "*" | "+";
+    codeBlockStyle: "fenced" | "indented";
   };
   media: {
     downloadImages: boolean;

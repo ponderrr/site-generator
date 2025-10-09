@@ -2,7 +2,7 @@
  * @fileoverview Testing utilities and helpers for the site generator
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 /**
  * Test utilities for mocking and testing site generator components
@@ -11,61 +11,70 @@ export class TestUtils {
   /**
    * Creates a mock HTML page for testing
    */
-  static createMockHTMLPage(options: {
-    title?: string;
-    content?: string;
-    url?: string;
-    metadata?: Record<string, any>;
-  } = {}): any {
+  static createMockHTMLPage(
+    options: {
+      title?: string;
+      content?: string;
+      url?: string;
+      metadata?: Record<string, any>;
+    } = {},
+  ): any {
     return {
-      url: options.url || 'https://example.com/test-page',
-      title: options.title || 'Test Page',
-      content: options.content || '<h1>Test Content</h1><p>This is test content.</p>',
+      url: options.url || "https://example.com/test-page",
+      title: options.title || "Test Page",
+      content:
+        options.content || "<h1>Test Content</h1><p>This is test content.</p>",
       metadata: {
-        description: 'Test page description',
-        keywords: ['test', 'page'],
-        author: 'Test Author',
-        ...options.metadata
+        description: "Test page description",
+        keywords: ["test", "page"],
+        author: "Test Author",
+        ...options.metadata,
       },
       extractedAt: new Date().toISOString(),
-      size: 1024
+      size: 1024,
     };
   }
 
   /**
    * Creates mock analysis results for testing
    */
-  static createMockAnalysisResult(options: {
-    pageType?: string;
-    metrics?: Record<string, number>;
-    sections?: any[];
-  } = {}): any {
+  static createMockAnalysisResult(
+    options: {
+      pageType?: string;
+      metrics?: Record<string, number>;
+      sections?: any[];
+    } = {},
+  ): any {
     return {
-      pageType: options.pageType || 'article',
+      pageType: options.pageType || "article",
       metrics: {
         wordCount: 150,
         readingTime: 1,
         complexity: 0.5,
-        ...options.metrics
+        ...options.metrics,
       },
       sections: options.sections || [
-        { type: 'heading', level: 1, content: 'Main Heading' },
-        { type: 'paragraph', content: 'Test paragraph content' }
+        { type: "heading", level: 1, content: "Main Heading" },
+        { type: "paragraph", content: "Test paragraph content" },
       ],
-      analyzedAt: new Date().toISOString()
+      analyzedAt: new Date().toISOString(),
     };
   }
 
   /**
    * Creates a mock cache entry for testing
    */
-  static createMockCacheEntry<T>(key: string, value: T, ttl: number = 300000): any {
+  static createMockCacheEntry<T>(
+    key: string,
+    value: T,
+    ttl: number = 300000,
+  ): any {
     return {
       key,
       value,
       timestamp: Date.now(),
       ttl,
-      accessCount: 0
+      accessCount: 0,
     };
   }
 
@@ -73,7 +82,7 @@ export class TestUtils {
    * Waits for a specified amount of time (useful for async testing)
    */
   static async wait(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -87,8 +96,8 @@ export class TestUtils {
         totalTasks: 0,
         completedTasks: 0,
         failedTasks: 0,
-        activeWorkers: 0
-      })
+        activeWorkers: 0,
+      }),
     };
   }
 }
@@ -100,7 +109,7 @@ export class MockFactories {
   /**
    * Creates a mock URL for testing
    */
-  static createMockURL(base: string = 'https://example.com'): URL {
+  static createMockURL(base: string = "https://example.com"): URL {
     return new URL(base);
   }
 
@@ -113,7 +122,7 @@ export class MockFactories {
       includeLinks: true,
       maxDepth: 3,
       timeout: 30000,
-      userAgent: 'SiteGenerator/1.0'
+      userAgent: "SiteGenerator/1.0",
     };
   }
 
@@ -122,11 +131,11 @@ export class MockFactories {
    */
   static createMockGenerationOptions(): any {
     return {
-      outputFormat: 'html',
+      outputFormat: "html",
       includeMetadata: true,
       optimizeImages: true,
       generateSitemap: true,
-      theme: 'default'
+      theme: "default",
     };
   }
 }
@@ -254,19 +263,19 @@ export class AssertionHelpers {
    * Asserts that a cache entry is valid
    */
   static assertValidCacheEntry(entry: any, message?: string): void {
-    expect(entry).toHaveProperty('key');
-    expect(entry).toHaveProperty('value');
-    expect(entry).toHaveProperty('timestamp');
-    expect(typeof entry.timestamp).toBe('number');
+    expect(entry).toHaveProperty("key");
+    expect(entry).toHaveProperty("value");
+    expect(entry).toHaveProperty("timestamp");
+    expect(typeof entry.timestamp).toBe("number");
   }
 
   /**
    * Asserts that analysis results are valid
    */
   static assertValidAnalysisResult(result: any, message?: string): void {
-    expect(result).toHaveProperty('pageType');
-    expect(result).toHaveProperty('metrics');
-    expect(result).toHaveProperty('sections');
+    expect(result).toHaveProperty("pageType");
+    expect(result).toHaveProperty("metrics");
+    expect(result).toHaveProperty("sections");
     expect(Array.isArray(result.sections)).toBe(true);
   }
 
@@ -274,10 +283,10 @@ export class AssertionHelpers {
    * Asserts that extraction results are valid
    */
   static assertValidExtractionResult(result: any, message?: string): void {
-    expect(result).toHaveProperty('url');
-    expect(result).toHaveProperty('title');
-    expect(result).toHaveProperty('content');
-    expect(result).toHaveProperty('extractedAt');
+    expect(result).toHaveProperty("url");
+    expect(result).toHaveProperty("title");
+    expect(result).toHaveProperty("content");
+    expect(result).toHaveProperty("extractedAt");
   }
 }
 
@@ -290,16 +299,16 @@ export class PerformanceTestUtils {
    */
   static async measureExecutionTime<T>(
     fn: () => Promise<T> | T,
-    label?: string
+    label?: string,
   ): Promise<{ result: T; duration: number }> {
     const start = performance.now();
     const result = await fn();
     const duration = performance.now() - start;
-    
+
     if (label) {
       console.log(`${label}: ${duration.toFixed(2)}ms`);
     }
-    
+
     return { result, duration };
   }
 
@@ -309,7 +318,7 @@ export class PerformanceTestUtils {
   static createPerformanceTest(
     maxDuration: number,
     fn: () => Promise<any> | any,
-    label?: string
+    label?: string,
   ) {
     return async () => {
       const { duration } = await this.measureExecutionTime(fn, label);
@@ -324,5 +333,5 @@ export default {
   MockFactories,
   TestFixtures,
   AssertionHelpers,
-  PerformanceTestUtils
+  PerformanceTestUtils,
 };

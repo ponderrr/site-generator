@@ -1,5 +1,9 @@
-import { performance } from 'perf_hooks';
-import { PerformanceMetrics, MetricsData, ResourceUsage } from '../types';
+import { performance } from "perf_hooks";
+import {
+  PerformanceMetrics,
+  MetricsData,
+  ResourceUsage,
+} from "../types/index.js";
 
 export class PerformanceMonitor {
   private static instance: PerformanceMonitor;
@@ -56,7 +60,7 @@ export class PerformanceMonitor {
       duration,
       memoryUsage: process.memoryUsage(),
       operations: 1,
-      throughput: 1000 / duration // operations per second
+      throughput: 1000 / duration, // operations per second
     };
 
     this.recordMetric(`${name}_duration`, duration);
@@ -72,7 +76,7 @@ export class PerformanceMonitor {
    */
   async measureAsync<T>(
     name: string,
-    operation: () => Promise<T>
+    operation: () => Promise<T>,
   ): Promise<{ result: T; metrics: PerformanceMetrics }> {
     if (!this.enabled) {
       const result = await operation();
@@ -94,11 +98,14 @@ export class PerformanceMonitor {
         duration: endTime - startTime,
         memoryUsage: endMemory,
         operations: 1,
-        throughput: 1000 / (endTime - startTime)
+        throughput: 1000 / (endTime - startTime),
       };
 
       this.recordMetric(`${name}_duration`, metrics.duration);
-      this.recordMetric(`${name}_memory_used`, endMemory.heapUsed - startMemory.heapUsed);
+      this.recordMetric(
+        `${name}_memory_used`,
+        endMemory.heapUsed - startMemory.heapUsed,
+      );
       this.recordMetric(`${name}_throughput`, metrics.throughput);
 
       return { result, metrics };
@@ -112,7 +119,7 @@ export class PerformanceMonitor {
         duration: endTime - startTime,
         memoryUsage: endMemory,
         operations: 0,
-        throughput: 0
+        throughput: 0,
       };
 
       throw error;
@@ -123,8 +130,13 @@ export class PerformanceMonitor {
    * Measure async performance (alias for measureAsync for backward compatibility)
    */
   async measureAsyncPerformance<T>(
-    operation: () => Promise<T>
-  ): Promise<{ result: T; duration: number; success: boolean; memoryUsage: NodeJS.MemoryUsage }> {
+    operation: () => Promise<T>,
+  ): Promise<{
+    result: T;
+    duration: number;
+    success: boolean;
+    memoryUsage: NodeJS.MemoryUsage;
+  }> {
     const startTime = performance.now();
     const startMemory = process.memoryUsage();
     try {
@@ -132,13 +144,16 @@ export class PerformanceMonitor {
       const duration = performance.now() - startTime;
       const memoryUsage = process.memoryUsage();
 
-      this.recordMetric('async_operation_duration', duration);
-      this.recordMetric('async_operation_memory', memoryUsage.heapUsed - startMemory.heapUsed);
+      this.recordMetric("async_operation_duration", duration);
+      this.recordMetric(
+        "async_operation_memory",
+        memoryUsage.heapUsed - startMemory.heapUsed,
+      );
       return { result, duration, success: true, memoryUsage };
     } catch (error) {
       const duration = performance.now() - startTime;
       const memoryUsage = process.memoryUsage();
-      this.recordMetric('async_operation_duration', duration);
+      this.recordMetric("async_operation_duration", duration);
       return { result: null as T, duration, success: false, memoryUsage };
     }
   }
@@ -151,7 +166,7 @@ export class PerformanceMonitor {
 
     for (const [metricName, metrics] of this.metrics) {
       // Extract category from metric name (e.g., "memory_heap_used" -> "memory")
-      const category = metricName.split('_')[0];
+      const category = metricName.split("_")[0];
       if (!categorized[category]) {
         categorized[category] = [];
       }
@@ -161,14 +176,18 @@ export class PerformanceMonitor {
     // Convert to array format for compatibility
     return Object.entries(categorized).map(([category, metrics]) => ({
       category,
-      metrics
+      metrics,
     }));
   }
 
   /**
    * Record a custom metric
    */
-  recordMetric(name: string, value: number, tags?: Record<string, string>): void {
+  recordMetric(
+    name: string,
+    value: number,
+    tags?: Record<string, string>,
+  ): void {
     if (!this.enabled) return;
 
     const metric: MetricsData = {
@@ -179,18 +198,18 @@ export class PerformanceMonitor {
       metadata: {
         processId: process.pid,
         memoryUsage: process.memoryUsage().heapUsed,
-        uptime: process.uptime()
-      }
+        uptime: process.uptime(),
+      },
     };
 
     const metrics = this.metrics.get(name) || [];
-    
+
     // Enforce limit BEFORE adding new metric to prevent memory leaks
     const MAX_METRICS = 1000;
     if (metrics.length >= MAX_METRICS) {
       metrics.shift(); // Remove oldest first
     }
-    
+
     metrics.push(metric);
     this.metrics.set(name, metrics);
   }
@@ -226,14 +245,15 @@ export class PerformanceMonitor {
     const metrics = this.metrics.get(name);
     if (!metrics || metrics.length === 0) return null;
 
-    const values = metrics.map(m => m.value).sort((a, b) => a - b);
+    const values = metrics.map((m) => m.value).sort((a, b) => a - b);
     const count = values.length;
     const min = values[0];
     const max = values[count - 1];
     const average = values.reduce((sum, val) => sum + val, 0) / count;
-    const median = count % 2 === 0
-      ? (values[count / 2 - 1] + values[count / 2]) / 2
-      : values[Math.floor(count / 2)];
+    const median =
+      count % 2 === 0
+        ? (values[count / 2 - 1] + values[count / 2]) / 2
+        : values[Math.floor(count / 2)];
 
     const p95Index = Math.floor(count * 0.95);
     const p99Index = Math.floor(count * 0.99);
@@ -255,7 +275,7 @@ export class PerformanceMonitor {
       memory: memUsage,
       cpu: (cpuUsage.user + cpuUsage.system) / 1000000, // Convert to seconds
       disk: this.getDiskUsage(),
-      network: this.getNetworkUsage()
+      network: this.getNetworkUsage(),
     };
   }
 
@@ -273,13 +293,17 @@ export class PerformanceMonitor {
   } {
     const resourceUsage = this.getResourceUsage();
     const activeMetrics = this.getMetricNames();
-    const totalMeasurements = Array.from(this.metrics.values())
-      .reduce((sum, metrics) => sum + metrics.length, 0);
+    const totalMeasurements = Array.from(this.metrics.values()).reduce(
+      (sum, metrics) => sum + metrics.length,
+      0,
+    );
 
-    const throughputMetrics = this.getMetrics('throughput', 100);
-    const averageThroughput = throughputMetrics.length > 0
-      ? throughputMetrics.reduce((sum, m) => sum + m.value, 0) / throughputMetrics.length
-      : 0;
+    const throughputMetrics = this.getMetrics("throughput", 100);
+    const averageThroughput =
+      throughputMetrics.length > 0
+        ? throughputMetrics.reduce((sum, m) => sum + m.value, 0) /
+          throughputMetrics.length
+        : 0;
 
     return {
       uptime: process.uptime(),
@@ -288,7 +312,7 @@ export class PerformanceMonitor {
       activeMetrics,
       totalMeasurements,
       totalOperations: totalMeasurements, // Alias for compatibility
-      averageThroughput
+      averageThroughput,
     };
   }
 
@@ -342,21 +366,21 @@ export class PerformanceMonitor {
     const timestamp = Date.now();
 
     // Memory metrics
-    this.recordMetric('memory_rss', resourceUsage.memory.rss);
-    this.recordMetric('memory_heap_used', resourceUsage.memory.heapUsed);
-    this.recordMetric('memory_heap_total', resourceUsage.memory.heapTotal);
-    this.recordMetric('memory_external', resourceUsage.memory.external);
+    this.recordMetric("memory_rss", resourceUsage.memory.rss);
+    this.recordMetric("memory_heap_used", resourceUsage.memory.heapUsed);
+    this.recordMetric("memory_heap_total", resourceUsage.memory.heapTotal);
+    this.recordMetric("memory_external", resourceUsage.memory.external);
 
     // CPU metrics
-    this.recordMetric('cpu_usage', resourceUsage.cpu);
+    this.recordMetric("cpu_usage", resourceUsage.cpu);
 
     // Disk metrics
-    this.recordMetric('disk_used', resourceUsage.disk.used);
-    this.recordMetric('disk_available', resourceUsage.disk.available);
+    this.recordMetric("disk_used", resourceUsage.disk.used);
+    this.recordMetric("disk_available", resourceUsage.disk.available);
 
     // Network metrics
-    this.recordMetric('network_connections', resourceUsage.network.connections);
-    this.recordMetric('network_bandwidth', resourceUsage.network.bandwidth);
+    this.recordMetric("network_connections", resourceUsage.network.connections);
+    this.recordMetric("network_bandwidth", resourceUsage.network.bandwidth);
   }
 
   private getDiskUsage(): { used: number; available: number } {
@@ -378,7 +402,7 @@ export const performanceMonitor = PerformanceMonitor.getInstance();
 // Utility functions for common performance operations
 export function measurePerformance<T>(
   operation: () => T,
-  name?: string
+  name?: string,
 ): { result: T; duration: number } {
   const startTime = performance.now();
   const result = operation();
@@ -392,7 +416,7 @@ export function measurePerformance<T>(
 
 export async function measureAsyncPerformance<T>(
   operation: () => Promise<T>,
-  name?: string
+  name?: string,
 ): Promise<{ result: T; duration: number; success: boolean }> {
   const startTime = performance.now();
   try {
@@ -414,7 +438,7 @@ export async function measureAsyncPerformance<T>(
 
 export function withPerformanceMonitoring<T extends any[], R>(
   name: string,
-  fn: (...args: T) => R
+  fn: (...args: T) => R,
 ): (...args: T) => R {
   return (...args: T): R => {
     performanceMonitor.startMeasurement(name);

@@ -1,7 +1,12 @@
-import * as cheerio from 'cheerio';
-import { URL } from 'url';
-import { logger } from '@site-generator/core';
-import type { ExtractionOptions } from './extractor';
+import * as cheerio from "cheerio";
+import { URL } from "url";
+const logger = {
+  info: (...args: any[]) => console.log("[INFO]", ...args),
+  error: (...args: any[]) => console.error("[ERROR]", ...args),
+  warn: (...args: any[]) => console.warn("[WARN]", ...args),
+  debug: (...args: any[]) => console.debug("[DEBUG]", ...args),
+};
+import type { ExtractionOptions } from "./extractor.js";
 
 export class MediaExtractor {
   constructor(private options: ExtractionOptions) {}
@@ -9,14 +14,16 @@ export class MediaExtractor {
   /**
    * Extract images from HTML
    */
-  extractImages(html: string): Array<{ url: string; alt: string; title?: string }> {
+  extractImages(
+    html: string,
+  ): Array<{ url: string; alt: string; title?: string }> {
     const $ = cheerio.load(html);
     const images: Array<{ url: string; alt: string; title?: string }> = [];
 
-    $('img').each((_, imgElement) => {
-      const src = $(imgElement).attr('src');
-      const alt = $(imgElement).attr('alt') || '';
-      const title = $(imgElement).attr('title') || undefined;
+    $("img").each((_, imgElement) => {
+      const src = $(imgElement).attr("src");
+      const alt = $(imgElement).attr("alt") || "";
+      const title = $(imgElement).attr("title") || undefined;
 
       if (src) {
         try {
@@ -24,7 +31,7 @@ export class MediaExtractor {
           images.push({
             url: absoluteUrl,
             alt,
-            ...(title && { title })
+            ...(title && { title }),
           });
         } catch (error) {
           logger.warn(`Invalid image URL: ${src}`, { src });
@@ -38,14 +45,16 @@ export class MediaExtractor {
   /**
    * Extract links from HTML
    */
-  extractLinks(html: string): Array<{ url: string; text: string; title?: string }> {
+  extractLinks(
+    html: string,
+  ): Array<{ url: string; text: string; title?: string }> {
     const $ = cheerio.load(html);
     const links: Array<{ url: string; text: string; title?: string }> = [];
 
-    $('a').each((_, linkElement) => {
-      const href = $(linkElement).attr('href');
+    $("a").each((_, linkElement) => {
+      const href = $(linkElement).attr("href");
       const text = $(linkElement).text().trim();
-      const title = $(linkElement).attr('title') || undefined;
+      const title = $(linkElement).attr("title") || undefined;
 
       if (href && text) {
         try {
@@ -53,7 +62,7 @@ export class MediaExtractor {
           links.push({
             url: absoluteUrl,
             text,
-            ...(title && { title })
+            ...(title && { title }),
           });
         } catch (error) {
           logger.warn(`Invalid link URL: ${href}`, { href });
@@ -69,28 +78,30 @@ export class MediaExtractor {
    */
   extractMedia(html: string): Array<{
     url: string;
-    type: 'video' | 'audio' | 'document';
+    type: "video" | "audio" | "document";
     title?: string;
     description?: string;
   }> {
     const $ = cheerio.load(html);
     const media: Array<{
       url: string;
-      type: 'video' | 'audio' | 'document';
+      type: "video" | "audio" | "document";
       title?: string;
       description?: string;
     }> = [];
 
     // Videos
-    $('video source').each((_, sourceElement) => {
-      const src = $(sourceElement).attr('src');
+    $("video source").each((_, sourceElement) => {
+      const src = $(sourceElement).attr("src");
       if (src) {
         try {
           const absoluteUrl = this.resolveUrl(src);
           media.push({
             url: absoluteUrl,
-            type: 'video',
-            ...(($(sourceElement).attr('title')) && { title: $(sourceElement).attr('title')! })
+            type: "video",
+            ...($(sourceElement).attr("title") && {
+              title: $(sourceElement).attr("title")!,
+            }),
           });
         } catch (error) {
           logger.warn(`Invalid video URL: ${src}`, { src });
@@ -99,15 +110,17 @@ export class MediaExtractor {
     });
 
     // Audio
-    $('audio source').each((_, sourceElement) => {
-      const src = $(sourceElement).attr('src');
+    $("audio source").each((_, sourceElement) => {
+      const src = $(sourceElement).attr("src");
       if (src) {
         try {
           const absoluteUrl = this.resolveUrl(src);
           media.push({
             url: absoluteUrl,
-            type: 'audio',
-            ...(($(sourceElement).attr('title')) && { title: $(sourceElement).attr('title')! })
+            type: "audio",
+            ...($(sourceElement).attr("title") && {
+              title: $(sourceElement).attr("title")!,
+            }),
           });
         } catch (error) {
           logger.warn(`Invalid audio URL: ${src}`, { src });
@@ -116,18 +129,23 @@ export class MediaExtractor {
     });
 
     // Documents
-    $('a[href$=".pdf"], a[href$=".doc"], a[href$=".docx"], a[href$=".xls"], a[href$=".xlsx"]').each((_, linkElement) => {
-      const href = $(linkElement).attr('href');
+    $(
+      'a[href$=".pdf"], a[href$=".doc"], a[href$=".docx"], a[href$=".xls"], a[href$=".xlsx"]',
+    ).each((_, linkElement) => {
+      const href = $(linkElement).attr("href");
       const text = $(linkElement).text().trim();
       if (href) {
         try {
           const absoluteUrl = this.resolveUrl(href);
           media.push({
             url: absoluteUrl,
-            type: 'document',
+            type: "document",
             ...(text && { title: text }),
-            ...((!text && $(linkElement).attr('title')) && { title: $(linkElement).attr('title')! }),
-            ...(text && { description: text })
+            ...(!text &&
+              $(linkElement).attr("title") && {
+                title: $(linkElement).attr("title")!,
+              }),
+            ...(text && { description: text }),
           });
         } catch (error) {
           logger.warn(`Invalid document URL: ${href}`, { href });
@@ -156,7 +174,11 @@ export class MediaExtractor {
 
       return true;
     } catch (error) {
-      logger.error(`Error downloading media`, error instanceof Error ? error : new Error(String(error)), { url });
+      logger.error(
+        `Error downloading media`,
+        error instanceof Error ? error : new Error(String(error)),
+        { url },
+      );
       return false;
     }
   }
@@ -170,19 +192,26 @@ export class MediaExtractor {
     lastModified?: string;
   }> {
     try {
-      const response = await fetch(url, { method: 'HEAD' });
+      const response = await fetch(url, { method: "HEAD" });
 
       if (!response.ok) {
         return {};
       }
 
       return {
-        size: parseInt(response.headers.get('content-length') || '0'),
-        ...(response.headers.get('content-type') && { contentType: response.headers.get('content-type')! }),
-        ...(response.headers.get('last-modified') && { lastModified: response.headers.get('last-modified')! })
+        size: parseInt(response.headers.get("content-length") || "0"),
+        ...(response.headers.get("content-type") && {
+          contentType: response.headers.get("content-type")!,
+        }),
+        ...(response.headers.get("last-modified") && {
+          lastModified: response.headers.get("last-modified")!,
+        }),
       };
     } catch (error) {
-      logger.warn(`Failed to get media metadata`, { url, error: error instanceof Error ? error.message : String(error) });
+      logger.warn(`Failed to get media metadata`, {
+        url,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return {};
     }
   }
@@ -192,7 +221,7 @@ export class MediaExtractor {
    */
   private resolveUrl(url: string, baseUrl?: string): string {
     if (!baseUrl) {
-      baseUrl = 'https://example.com'; // Default base URL
+      baseUrl = "https://example.com"; // Default base URL
     }
 
     try {

@@ -24,14 +24,14 @@ pnpm add @site-generator/analyzer
 ### Content Analysis
 
 ```typescript
-import { AnalysisOrchestrator } from '@site-generator/analyzer';
+import { AnalysisOrchestrator } from "@site-generator/analyzer";
 
 const orchestrator = new AnalysisOrchestrator({
   parallel: 4,
   cache: true,
   enableMetrics: true,
   enableClassification: true,
-  enableSections: true
+  enableSections: true,
 });
 
 const results = await orchestrator.analyze(pages);
@@ -40,42 +40,42 @@ const results = await orchestrator.analyze(pages);
 ### Metrics Analysis
 
 ```typescript
-import { ContentMetricsAnalyzer } from '@site-generator/analyzer';
+import { ContentMetricsAnalyzer } from "@site-generator/analyzer";
 
 const metricsAnalyzer = new ContentMetricsAnalyzer();
 
 const metrics = await metricsAnalyzer.analyze(content, {
   calculateReadingTime: true,
   analyzeComplexity: true,
-  detectLanguage: true
+  detectLanguage: true,
 });
 ```
 
 ### Page Classification
 
 ```typescript
-import { PageTypeClassifier } from '@site-generator/analyzer';
+import { PageTypeClassifier } from "@site-generator/analyzer";
 
 const classifier = new PageTypeClassifier();
 
 const pageType = await classifier.classify({
-  title: 'How to Build a Website',
-  content: 'Step 1: Choose a domain...',
-  url: 'https://example.com/guide',
-  metadata: { author: 'John Doe' }
+  title: "How to Build a Website",
+  content: "Step 1: Choose a domain...",
+  url: "https://example.com/guide",
+  metadata: { author: "John Doe" },
 });
 ```
 
 ### Section Detection
 
 ```typescript
-import { SectionDetector } from '@site-generator/analyzer';
+import { SectionDetector } from "@site-generator/analyzer";
 
 const detector = new SectionDetector({
   minSectionLength: 100,
   detectHeadings: true,
   detectLists: true,
-  detectCodeBlocks: true
+  detectCodeBlocks: true,
 });
 
 const sections = await detector.detect(content);
