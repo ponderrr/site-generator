@@ -21,6 +21,8 @@ build/
 out/
 lib/
 *.tsbuildinfo
+*.d.ts
+*.d.ts.map
 
 # Turbo
 .turbo
