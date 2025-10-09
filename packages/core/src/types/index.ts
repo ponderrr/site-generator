@@ -108,11 +108,11 @@ export interface ProcessingError extends Error {
   context: ErrorContext;
   timestamp: number;
   retryable: boolean;
-  severity: 'low' | 'medium' | 'high' | 'critical';
+  severity: "low" | "medium" | "high" | "critical";
 }
 
 export interface LogEntry {
-  level: 'debug' | 'info' | 'warn' | 'error';
+  level: "debug" | "info" | "warn" | "error";
   message: string;
   timestamp: number;
   component?: string;
@@ -134,9 +134,13 @@ export type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
 
-export type RequireAtLeastOne<T, Keys extends keyof T = keyof T> =
-  Pick<T, Exclude<keyof T, Keys>> &
-  { [K in Keys]-?: Required<Pick<T, K>> & Partial<Pick<T, Exclude<Keys, K>>> }[Keys];
+export type RequireAtLeastOne<T, Keys extends keyof T = keyof T> = Pick<
+  T,
+  Exclude<keyof T, Keys>
+> &
+  {
+    [K in Keys]-?: Required<Pick<T, K>> & Partial<Pick<T, Exclude<Keys, K>>>;
+  }[Keys];
 
 export type PromiseType<T> = T extends PromiseLike<infer U> ? U : T;
 
@@ -166,7 +170,7 @@ export interface RetryConfig {
 export interface ThrottleConfig {
   limit: number;
   interval: number;
-  strategy: 'fixed' | 'burst';
+  strategy: "fixed" | "burst";
 }
 
 export interface CircuitBreakerConfig {
@@ -258,7 +262,7 @@ export interface WorkerPoolOptions {
 
 export interface WorkerStats {
   threadId: number;
-  status: 'idle' | 'busy' | 'terminating';
+  status: "idle" | "busy" | "terminating";
   tasksCompleted: number;
   tasksFailed: number;
   averageTaskTime: number;
@@ -293,8 +297,16 @@ export interface AnalysisConfig {
   metricsInterval: number;
 }
 
-export type MetricType = 'counter' | 'gauge' | 'histogram';
-export type AggregationType = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'p50' | 'p95' | 'p99';
+export type MetricType = "counter" | "gauge" | "histogram";
+export type AggregationType =
+  | "sum"
+  | "avg"
+  | "min"
+  | "max"
+  | "count"
+  | "p50"
+  | "p95"
+  | "p99";
 export type MetricTags = Record<string, string>;
 
 export interface MetricData {

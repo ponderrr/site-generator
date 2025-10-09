@@ -24,19 +24,23 @@ pnpm add @site-generator/testing
 ### Basic Test Setup
 
 ```typescript
-import { describe, it, expect } from 'vitest';
-import { TestUtils, MockFactories, TestFixtures } from '@site-generator/testing';
+import { describe, it, expect } from "vitest";
+import {
+  TestUtils,
+  MockFactories,
+  TestFixtures,
+} from "@site-generator/testing";
 
-describe('Content Extraction', () => {
-  it('should extract content from HTML', () => {
+describe("Content Extraction", () => {
+  it("should extract content from HTML", () => {
     const html = TestFixtures.SIMPLE_HTML;
     const mockPage = TestUtils.createMockHTMLPage({
       content: html,
-      title: 'Test Page'
+      title: "Test Page",
     });
-    
-    expect(mockPage.title).toBe('Test Page');
-    expect(mockPage.content).toContain('Welcome');
+
+    expect(mockPage.title).toBe("Test Page");
+    expect(mockPage.content).toContain("Welcome");
   });
 });
 ```
@@ -44,10 +48,10 @@ describe('Content Extraction', () => {
 ### Mock Factories
 
 ```typescript
-import { MockFactories } from '@site-generator/testing';
+import { MockFactories } from "@site-generator/testing";
 
 // Create mock URL
-const url = MockFactories.createMockURL('https://example.com');
+const url = MockFactories.createMockURL("https://example.com");
 
 // Create mock extraction options
 const options = MockFactories.createMockExtractionOptions();
@@ -59,60 +63,60 @@ const genOptions = MockFactories.createMockGenerationOptions();
 ### Test Utilities
 
 ```typescript
-import { TestUtils } from '@site-generator/testing';
+import { TestUtils } from "@site-generator/testing";
 
 // Create mock HTML page
 const page = TestUtils.createMockHTMLPage({
-  title: 'My Test Page',
-  content: '<h1>Test Content</h1>',
-  url: 'https://example.com/test',
+  title: "My Test Page",
+  content: "<h1>Test Content</h1>",
+  url: "https://example.com/test",
   metadata: {
-    author: 'Test Author',
-    description: 'Test page description'
-  }
+    author: "Test Author",
+    description: "Test page description",
+  },
 });
 
 // Create mock analysis result
 const analysis = TestUtils.createMockAnalysisResult({
-  pageType: 'article',
+  pageType: "article",
   metrics: {
     wordCount: 250,
     readingTime: 2,
-    complexity: 0.7
-  }
+    complexity: 0.7,
+  },
 });
 
 // Create mock cache entry
-const cacheEntry = TestUtils.createMockCacheEntry('test-key', { data: 'value' });
+const cacheEntry = TestUtils.createMockCacheEntry("test-key", {
+  data: "value",
+});
 ```
 
 ### Performance Testing
 
 ```typescript
-import { PerformanceTestUtils } from '@site-generator/testing';
+import { PerformanceTestUtils } from "@site-generator/testing";
 
-describe('Performance Tests', () => {
-  it('should extract content within time limit', async () => {
+describe("Performance Tests", () => {
+  it("should extract content within time limit", async () => {
     const performanceTest = PerformanceTestUtils.createPerformanceTest(
       1000, // Max duration: 1 second
       async () => {
         // Your async operation here
-        await extractor.extract('https://example.com');
+        await extractor.extract("https://example.com");
       },
-      'Content Extraction'
+      "Content Extraction",
     );
-    
+
     await performanceTest();
   });
-  
-  it('should measure execution time', async () => {
-    const { result, duration } = await PerformanceTestUtils.measureExecutionTime(
-      async () => {
+
+  it("should measure execution time", async () => {
+    const { result, duration } =
+      await PerformanceTestUtils.measureExecutionTime(async () => {
         return await someAsyncOperation();
-      },
-      'Operation Name'
-    );
-    
+      }, "Operation Name");
+
     expect(duration).toBeLessThan(500);
     expect(result).toBeDefined();
   });
@@ -122,20 +126,20 @@ describe('Performance Tests', () => {
 ### Assertion Helpers
 
 ```typescript
-import { AssertionHelpers } from '@site-generator/testing';
+import { AssertionHelpers } from "@site-generator/testing";
 
-describe('Validation Tests', () => {
-  it('should validate URL', () => {
-    const url = new URL('https://example.com');
+describe("Validation Tests", () => {
+  it("should validate URL", () => {
+    const url = new URL("https://example.com");
     AssertionHelpers.assertValidURL(url);
   });
-  
-  it('should validate cache entry', () => {
-    const entry = TestUtils.createMockCacheEntry('key', 'value');
+
+  it("should validate cache entry", () => {
+    const entry = TestUtils.createMockCacheEntry("key", "value");
     AssertionHelpers.assertValidCacheEntry(entry);
   });
-  
-  it('should validate analysis result', () => {
+
+  it("should validate analysis result", () => {
     const result = TestUtils.createMockAnalysisResult();
     AssertionHelpers.assertValidAnalysisResult(result);
   });
@@ -200,13 +204,13 @@ describe('Validation Tests', () => {
 ### Unit Testing
 
 ```typescript
-import { TestUtils } from '@site-generator/testing';
+import { TestUtils } from "@site-generator/testing";
 
-describe('Unit Tests', () => {
-  it('should process single page', () => {
+describe("Unit Tests", () => {
+  it("should process single page", () => {
     const page = TestUtils.createMockHTMLPage();
     const result = processor.process(page);
-    
+
     expect(result).toBeDefined();
     expect(result.processed).toBe(true);
   });
@@ -216,17 +220,17 @@ describe('Unit Tests', () => {
 ### Integration Testing
 
 ```typescript
-import { TestFixtures, TestUtils } from '@site-generator/testing';
+import { TestFixtures, TestUtils } from "@site-generator/testing";
 
-describe('Integration Tests', () => {
-  it('should process complete pipeline', async () => {
+describe("Integration Tests", () => {
+  it("should process complete pipeline", async () => {
     const pages = [
       TestUtils.createMockHTMLPage({ content: TestFixtures.SIMPLE_HTML }),
-      TestUtils.createMockHTMLPage({ content: TestFixtures.COMPLEX_HTML })
+      TestUtils.createMockHTMLPage({ content: TestFixtures.COMPLEX_HTML }),
     ];
-    
+
     const results = await orchestrator.process(pages);
-    
+
     expect(results).toHaveLength(2);
     expect(results[0].success).toBe(true);
   });
@@ -236,19 +240,19 @@ describe('Integration Tests', () => {
 ### Performance Testing
 
 ```typescript
-import { PerformanceTestUtils } from '@site-generator/testing';
+import { PerformanceTestUtils } from "@site-generator/testing";
 
-describe('Performance Tests', () => {
-  it('should handle large datasets', async () => {
-    const largeDataset = Array.from({ length: 1000 }, (_, i) => 
-      TestUtils.createMockHTMLPage({ url: `https://example.com/page-${i}` })
+describe("Performance Tests", () => {
+  it("should handle large datasets", async () => {
+    const largeDataset = Array.from({ length: 1000 }, (_, i) =>
+      TestUtils.createMockHTMLPage({ url: `https://example.com/page-${i}` }),
     );
-    
+
     const test = PerformanceTestUtils.createPerformanceTest(
       5000, // 5 second limit
-      () => processor.processBatch(largeDataset)
+      () => processor.processBatch(largeDataset),
     );
-    
+
     await test();
   });
 });

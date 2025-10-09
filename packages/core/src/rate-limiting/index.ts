@@ -1,11 +1,11 @@
 /**
  * @fileoverview Rate Limiting System
- * 
+ *
  * Provides rate limiting for external API calls and network requests
  * to prevent API rate limit violations and control resource usage.
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from "events";
 
 export interface RateLimitOptions {
   requestsPerSecond?: number;
@@ -57,12 +57,12 @@ export class TokenBucket {
    */
   tryConsume(tokens: number = 1): boolean {
     this.refill();
-    
+
     if (this.tokens >= tokens) {
       this.tokens -= tokens;
       return true;
     }
-    
+
     return false;
   }
 
@@ -79,12 +79,12 @@ export class TokenBucket {
    */
   getTimeUntilRefill(): number {
     this.refill();
-    
+
     if (this.tokens >= 1) {
       return 0;
     }
-    
-    return Math.ceil((1 - this.tokens) / this.refillRate * 1000);
+
+    return Math.ceil(((1 - this.tokens) / this.refillRate) * 1000);
   }
 
   /**
@@ -94,7 +94,7 @@ export class TokenBucket {
     const now = Date.now();
     const timePassed = (now - this.lastRefill) / 1000;
     const tokensToAdd = timePassed * this.refillRate;
-    
+
     this.tokens = Math.min(this.capacity, this.tokens + tokensToAdd);
     this.lastRefill = now;
   }
@@ -118,15 +118,15 @@ export class SlidingWindow {
    */
   tryRequest(): boolean {
     const now = Date.now();
-    
+
     // Remove old requests outside the window
-    this.requests = this.requests.filter(time => now - time < this.windowMs);
-    
+    this.requests = this.requests.filter((time) => now - time < this.windowMs);
+
     if (this.requests.length < this.maxRequests) {
       this.requests.push(now);
       return true;
     }
-    
+
     return false;
   }
 
@@ -135,7 +135,7 @@ export class SlidingWindow {
    */
   getRemaining(): number {
     const now = Date.now();
-    this.requests = this.requests.filter(time => now - time < this.windowMs);
+    this.requests = this.requests.filter((time) => now - time < this.windowMs);
     return Math.max(0, this.maxRequests - this.requests.length);
   }
 
@@ -146,7 +146,7 @@ export class SlidingWindow {
     if (this.requests.length === 0) {
       return 0;
     }
-    
+
     const oldestRequest = Math.min(...this.requests);
     return Math.max(0, this.windowMs - (Date.now() - oldestRequest));
   }
@@ -165,7 +165,7 @@ export class RateLimiter extends EventEmitter {
 
   constructor(private defaultOptions: RateLimitOptions = {}) {
     super();
-    
+
     // Set defaults
     this.defaultOptions = {
       requestsPerSecond: 10,
@@ -174,8 +174,8 @@ export class RateLimiter extends EventEmitter {
       maxConcurrent: 5,
       burstLimit: 20,
       windowMs: 1000,
-      keyGenerator: () => 'default',
-      ...defaultOptions
+      keyGenerator: () => "default",
+      ...defaultOptions,
     };
   }
 
@@ -185,17 +185,20 @@ export class RateLimiter extends EventEmitter {
   async execute<T>(
     fn: () => Promise<T>,
     context?: any,
-    options?: Partial<RateLimitOptions>
+    options?: Partial<RateLimitOptions>,
   ): Promise<T> {
     const key = this.getKey(context, options);
     const opts = { ...this.defaultOptions, ...options };
-    
+
     // Check if request is allowed
     const result = this.checkLimit(key, opts);
-    
+
     if (!result.allowed) {
-      this.emit('rate-limited', { key, result, context });
-      throw new RateLimitError(result.reason || 'Rate limit exceeded', result.retryAfter);
+      this.emit("rate-limited", { key, result, context });
+      throw new RateLimitError(
+        result.reason || "Rate limit exceeded",
+        result.retryAfter,
+      );
     }
 
     // Wait for (and acquire) a concurrency slot if needed
@@ -208,19 +211,25 @@ export class RateLimiter extends EventEmitter {
       // Execute the function
       const result = await fn();
       success = true;
-      
+
       // Update stats
       this.updateStats(key, Date.now() - startTime, true);
-      
-      this.emit('request-completed', { key, duration: Date.now() - startTime, success: true });
-      
-      return result;
 
+      this.emit("request-completed", {
+        key,
+        duration: Date.now() - startTime,
+        success: true,
+      });
+
+      return result;
     } catch (error) {
       this.updateStats(key, Date.now() - startTime, false);
-      this.emit('request-failed', { key, duration: Date.now() - startTime, error });
+      this.emit("request-failed", {
+        key,
+        duration: Date.now() - startTime,
+        error,
+      });
       throw error;
-      
     } finally {
       // Decrement concurrency
       this.decrementConcurrency(key);
@@ -232,7 +241,7 @@ export class RateLimiter extends EventEmitter {
    */
   checkLimit(key: string, options: RateLimitOptions): RateLimitResult {
     const now = Date.now();
-    
+
     // Check burst limit
     if (options.burstLimit) {
       const burstWindow = this.getOrCreateBurstWindow(key, options.burstLimit);
@@ -242,49 +251,64 @@ export class RateLimiter extends EventEmitter {
           remaining: 0,
           resetTime: now + burstWindow.getTimeUntilReset(),
           retryAfter: burstWindow.getTimeUntilReset(),
-          reason: 'Burst limit exceeded'
+          reason: "Burst limit exceeded",
         };
       }
     }
 
     // Check per-second limit
     if (options.requestsPerSecond) {
-      const bucket = this.getOrCreateBucket(key, 'second', options.requestsPerSecond, 1);
+      const bucket = this.getOrCreateBucket(
+        key,
+        "second",
+        options.requestsPerSecond,
+        1,
+      );
       if (!bucket.tryConsume()) {
         return {
           allowed: false,
           remaining: bucket.getRemaining(),
           resetTime: now + bucket.getTimeUntilRefill(),
           retryAfter: bucket.getTimeUntilRefill(),
-          reason: 'Per-second limit exceeded'
+          reason: "Per-second limit exceeded",
         };
       }
     }
 
     // Check per-minute limit
     if (options.requestsPerMinute) {
-      const bucket = this.getOrCreateBucket(key, 'minute', options.requestsPerMinute, 60);
+      const bucket = this.getOrCreateBucket(
+        key,
+        "minute",
+        options.requestsPerMinute,
+        60,
+      );
       if (!bucket.tryConsume()) {
         return {
           allowed: false,
           remaining: bucket.getRemaining(),
           resetTime: now + bucket.getTimeUntilRefill(),
           retryAfter: bucket.getTimeUntilRefill(),
-          reason: 'Per-minute limit exceeded'
+          reason: "Per-minute limit exceeded",
         };
       }
     }
 
     // Check per-hour limit
     if (options.requestsPerHour) {
-      const bucket = this.getOrCreateBucket(key, 'hour', options.requestsPerHour, 3600);
+      const bucket = this.getOrCreateBucket(
+        key,
+        "hour",
+        options.requestsPerHour,
+        3600,
+      );
       if (!bucket.tryConsume()) {
         return {
           allowed: false,
           remaining: bucket.getRemaining(),
           resetTime: now + bucket.getTimeUntilRefill(),
           retryAfter: bucket.getTimeUntilRefill(),
-          reason: 'Per-hour limit exceeded'
+          reason: "Per-hour limit exceeded",
         };
       }
     }
@@ -296,21 +320,24 @@ export class RateLimiter extends EventEmitter {
         allowed: false,
         remaining: 0,
         resetTime: now,
-        reason: 'Concurrency limit exceeded'
+        reason: "Concurrency limit exceeded",
       };
     }
 
     return {
       allowed: true,
       remaining: this.getRemainingRequests(key, options),
-      resetTime: now
+      resetTime: now,
     };
   }
 
   /**
    * Wait for a concurrency slot to become available
    */
-  private async waitForConcurrencySlot(key: string, options: RateLimitOptions): Promise<void> {
+  private async waitForConcurrencySlot(
+    key: string,
+    options: RateLimitOptions,
+  ): Promise<void> {
     if (!options.maxConcurrent) {
       return;
     }
@@ -320,43 +347,54 @@ export class RateLimiter extends EventEmitter {
 
     while (Date.now() - startTime < maxWait) {
       const current = this.currentConcurrency.get(key) || 0;
-      
+
       if (current < options.maxConcurrent) {
         this.incrementConcurrency(key);
         return;
       }
 
       // Wait a bit before checking again
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    throw new Error('Concurrency slot timeout');
+    throw new Error("Concurrency slot timeout");
   }
 
   /**
    * Get or create a token bucket
    */
-  private getOrCreateBucket(key: string, period: string, capacity: number, windowSeconds: number): TokenBucket {
+  private getOrCreateBucket(
+    key: string,
+    period: string,
+    capacity: number,
+    windowSeconds: number,
+  ): TokenBucket {
     const bucketKey = `${key}:${period}`;
-    
+
     if (!this.buckets.has(bucketKey)) {
       const refillRate = capacity / windowSeconds;
-      this.buckets.set(bucketKey, new TokenBucket(capacity, refillRate, windowSeconds * 1000));
+      this.buckets.set(
+        bucketKey,
+        new TokenBucket(capacity, refillRate, windowSeconds * 1000),
+      );
     }
-    
+
     return this.buckets.get(bucketKey)!;
   }
 
   /**
    * Get or create a burst window
    */
-  private getOrCreateBurstWindow(key: string, maxRequests: number): SlidingWindow {
+  private getOrCreateBurstWindow(
+    key: string,
+    maxRequests: number,
+  ): SlidingWindow {
     const burstKey = `${key}:burst`;
-    
+
     if (!this.windows.has(burstKey)) {
       this.windows.set(burstKey, new SlidingWindow(maxRequests, 1000)); // 1 second burst window
     }
-    
+
     return this.windows.get(burstKey)!;
   }
 
@@ -364,7 +402,8 @@ export class RateLimiter extends EventEmitter {
    * Get key for rate limiting
    */
   private getKey(context: any, options?: Partial<RateLimitOptions>): string {
-    const keyGenerator = options?.keyGenerator || this.defaultOptions.keyGenerator;
+    const keyGenerator =
+      options?.keyGenerator || this.defaultOptions.keyGenerator;
     return keyGenerator!(context);
   }
 
@@ -394,11 +433,11 @@ export class RateLimiter extends EventEmitter {
       blockedRequests: 0,
       currentConcurrency: 0,
       averageResponseTime: 0,
-      lastResetTime: Date.now()
+      lastResetTime: Date.now(),
     };
 
     stats.totalRequests++;
-    
+
     if (success) {
       stats.allowedRequests++;
     } else {
@@ -406,9 +445,11 @@ export class RateLimiter extends EventEmitter {
     }
 
     stats.currentConcurrency = this.currentConcurrency.get(key) || 0;
-    
+
     // Update average response time
-    stats.averageResponseTime = (stats.averageResponseTime * (stats.totalRequests - 1) + duration) / stats.totalRequests;
+    stats.averageResponseTime =
+      (stats.averageResponseTime * (stats.totalRequests - 1) + duration) /
+      stats.totalRequests;
 
     this.stats.set(key, stats);
   }
@@ -421,17 +462,32 @@ export class RateLimiter extends EventEmitter {
     const remainings: number[] = [];
 
     if (options.requestsPerSecond) {
-      const bucket = this.getOrCreateBucket(key, 'second', options.requestsPerSecond, 1);
+      const bucket = this.getOrCreateBucket(
+        key,
+        "second",
+        options.requestsPerSecond,
+        1,
+      );
       remainings.push(bucket.getRemaining());
     }
 
     if (options.requestsPerMinute) {
-      const bucket = this.getOrCreateBucket(key, 'minute', options.requestsPerMinute, 60);
+      const bucket = this.getOrCreateBucket(
+        key,
+        "minute",
+        options.requestsPerMinute,
+        60,
+      );
       remainings.push(bucket.getRemaining());
     }
 
     if (options.requestsPerHour) {
-      const bucket = this.getOrCreateBucket(key, 'hour', options.requestsPerHour, 3600);
+      const bucket = this.getOrCreateBucket(
+        key,
+        "hour",
+        options.requestsPerHour,
+        3600,
+      );
       remainings.push(bucket.getRemaining());
     }
 
@@ -481,10 +537,10 @@ export class RateLimiter extends EventEmitter {
 export class RateLimitError extends Error {
   constructor(
     message: string,
-    public retryAfter?: number
+    public retryAfter?: number,
   ) {
     super(message);
-    this.name = 'RateLimitError';
+    this.name = "RateLimitError";
   }
 }
 
@@ -495,19 +551,19 @@ export const apiRateLimiter = new RateLimiter({
   requestsPerSecond: 5,
   requestsPerMinute: 300,
   maxConcurrent: 3,
-  burstLimit: 10
+  burstLimit: 10,
 });
 
 export const networkRateLimiter = new RateLimiter({
   requestsPerSecond: 10,
   requestsPerMinute: 600,
   maxConcurrent: 5,
-  burstLimit: 20
+  burstLimit: 20,
 });
 
 export const analysisRateLimiter = new RateLimiter({
   requestsPerSecond: 2,
   requestsPerMinute: 120,
   maxConcurrent: 2,
-  burstLimit: 5
+  burstLimit: 5,
 });

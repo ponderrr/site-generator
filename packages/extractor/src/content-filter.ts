@@ -1,6 +1,11 @@
-import * as cheerio from 'cheerio';
-import { logger } from '@site-generator/core';
-import type { ExtractionOptions } from './extractor';
+import * as cheerio from "cheerio";
+const logger = {
+  info: (...args: any[]) => console.log("[INFO]", ...args),
+  error: (...args: any[]) => console.error("[ERROR]", ...args),
+  warn: (...args: any[]) => console.warn("[WARN]", ...args),
+  debug: (...args: any[]) => console.debug("[DEBUG]", ...args),
+};
+import type { ExtractionOptions } from "./extractor.js";
 
 export class ContentFilter {
   private stopWords: Set<string>;
@@ -12,7 +17,7 @@ export class ContentFilter {
     /##\s*(?:advertisement|ad|sponsor|promotion)/gi,
     /##\s*(?:comment|discussion)/gi,
     /##\s*(?:related|see also)/gi,
-    /##\s*(?:tag|category|archive)/gi
+    /##\s*(?:tag|category|archive)/gi,
   ] as const;
 
   private static readonly BOILERPLATE_PATTERNS = [
@@ -25,21 +30,105 @@ export class ContentFilter {
     /print this page/gi,
     /share this/gi,
     /follow us/gi,
-    /subscribe/gi
+    /subscribe/gi,
   ] as const;
 
   constructor(private options: ExtractionOptions) {
     this.stopWords = new Set([
-      'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-      'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-      'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-      'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these',
-      'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him',
-      'her', 'us', 'them', 'my', 'your', 'his', 'its', 'our', 'their',
-      'what', 'which', 'who', 'whom', 'whose', 'when', 'where', 'why',
-      'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other',
-      'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so',
-      'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now'
+      "the",
+      "a",
+      "an",
+      "and",
+      "or",
+      "but",
+      "in",
+      "on",
+      "at",
+      "to",
+      "for",
+      "of",
+      "with",
+      "by",
+      "is",
+      "are",
+      "was",
+      "were",
+      "be",
+      "been",
+      "being",
+      "have",
+      "has",
+      "had",
+      "do",
+      "does",
+      "did",
+      "will",
+      "would",
+      "could",
+      "should",
+      "may",
+      "might",
+      "must",
+      "can",
+      "this",
+      "that",
+      "these",
+      "those",
+      "i",
+      "you",
+      "he",
+      "she",
+      "it",
+      "we",
+      "they",
+      "me",
+      "him",
+      "her",
+      "us",
+      "them",
+      "my",
+      "your",
+      "his",
+      "its",
+      "our",
+      "their",
+      "what",
+      "which",
+      "who",
+      "whom",
+      "whose",
+      "when",
+      "where",
+      "why",
+      "how",
+      "all",
+      "any",
+      "both",
+      "each",
+      "few",
+      "more",
+      "most",
+      "other",
+      "some",
+      "such",
+      "no",
+      "nor",
+      "not",
+      "only",
+      "own",
+      "same",
+      "so",
+      "than",
+      "too",
+      "very",
+      "s",
+      "t",
+      "can",
+      "will",
+      "just",
+      "don",
+      "should",
+      "now",
     ]);
   }
 
@@ -74,28 +163,32 @@ export class ContentFilter {
     const $ = cheerio.load(html);
 
     // Remove script and style elements
-    $('script, style, noscript').remove();
+    $("script, style, noscript").remove();
 
     // Remove navigation if requested
     if (this.options.removeNavigation !== false) {
-      $('nav, .nav, .navigation, .navbar, .menu').remove();
+      $("nav, .nav, .navigation, .navbar, .menu").remove();
     }
 
     // Remove ads if requested
     if (this.options.removeAds !== false) {
-      $('[id*="ad"], [class*="ad"], [id*="banner"], [class*="banner"], .advertisement').remove();
+      $(
+        '[id*="ad"], [class*="ad"], [id*="banner"], [class*="banner"], .advertisement',
+      ).remove();
     }
 
     // Remove footer if requested
     if (this.options.removeNavigation !== false) {
-      $('footer, .footer').remove();
+      $("footer, .footer").remove();
     }
 
     // Remove comments
     $('[id*="comment"], [class*="comment"]').remove();
 
     // Remove social media widgets
-    $('[class*="social"], [id*="social"], [class*="share"], [id*="share"]').remove();
+    $(
+      '[class*="social"], [id*="social"], [class*="share"], [id*="share"]',
+    ).remove();
 
     return $.html();
   }
@@ -103,7 +196,7 @@ export class ContentFilter {
   private removeUnwantedSections(markdown: string): string {
     let result = markdown;
     for (const pattern of ContentFilter.UNWANTED_SECTION_PATTERNS) {
-      result = result.replace(pattern, '');
+      result = result.replace(pattern, "");
     }
     return result;
   }
@@ -111,7 +204,7 @@ export class ContentFilter {
   private removeBoilerplate(markdown: string): string {
     let result = markdown;
     for (const pattern of ContentFilter.BOILERPLATE_PATTERNS) {
-      result = result.replace(pattern, '');
+      result = result.replace(pattern, "");
     }
     return result;
   }
@@ -120,22 +213,22 @@ export class ContentFilter {
     let cleaned = markdown;
 
     // Fix multiple consecutive line breaks
-    cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+    cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
 
     // Fix spacing around headings
-    cleaned = cleaned.replace(/(\n#+\s+.*)\n+/g, '$1\n\n');
+    cleaned = cleaned.replace(/(\n#+\s+.*)\n+/g, "$1\n\n");
 
     // Fix list formatting
-    cleaned = cleaned.replace(/(\n- .+)\n\n/g, '$1\n');
+    cleaned = cleaned.replace(/(\n- .+)\n\n/g, "$1\n");
 
     // Remove trailing whitespace
-    cleaned = cleaned.replace(/[ \t]+$/gm, '');
+    cleaned = cleaned.replace(/[ \t]+$/gm, "");
 
     return cleaned;
   }
 
   private filterByLength(markdown: string): string {
-    const lines = markdown.split('\n');
+    const lines = markdown.split("\n");
     const filteredLines: string[] = [];
 
     for (const line of lines) {
@@ -158,19 +251,19 @@ export class ContentFilter {
       filteredLines.push(line);
     }
 
-    return filteredLines.join('\n');
+    return filteredLines.join("\n");
   }
 
   private filterByQuality(markdown: string): string {
-    const lines = markdown.split('\n');
+    const lines = markdown.split("\n");
     const filteredLines: string[] = [];
 
     for (const line of lines) {
       // Skip lines with too many stop words
       const words = line.toLowerCase().split(/\s+/);
-      const significantWords = words.filter(word =>
-        word.length >= this.minWordLength &&
-        !this.stopWords.has(word)
+      const significantWords = words.filter(
+        (word) =>
+          word.length >= this.minWordLength && !this.stopWords.has(word),
       );
 
       if (significantWords.length === 0 && words.length > 3) {
@@ -178,7 +271,8 @@ export class ContentFilter {
       }
 
       // Skip lines with too many special characters
-      const specialCharRatio = (line.match(/[^a-zA-Z0-9\s]/g) || []).length / line.length;
+      const specialCharRatio =
+        (line.match(/[^a-zA-Z0-9\s]/g) || []).length / line.length;
       if (specialCharRatio > 0.3) {
         continue;
       }
@@ -192,7 +286,7 @@ export class ContentFilter {
       filteredLines.push(line);
     }
 
-    return filteredLines.join('\n');
+    return filteredLines.join("\n");
   }
 
   /**
@@ -212,9 +306,13 @@ export class ContentFilter {
     }
 
     // Check quality metrics
-    const significantWords = content.toLowerCase()
+    const significantWords = content
+      .toLowerCase()
       .split(/\s+/)
-      .filter(word => word.length >= this.minWordLength && !this.stopWords.has(word));
+      .filter(
+        (word) =>
+          word.length >= this.minWordLength && !this.stopWords.has(word),
+      );
 
     const qualityRatio = significantWords.length / wordCount;
 
@@ -226,19 +324,19 @@ export class ContentFilter {
    */
   extractMainContent(markdown: string): string[] {
     const sections: string[] = [];
-    const lines = markdown.split('\n');
+    const lines = markdown.split("\n");
 
-    let currentSection = '';
+    let currentSection = "";
     let inCodeBlock = false;
 
     for (const line of lines) {
       // Track code blocks
-      if (line.startsWith('```')) {
+      if (line.startsWith("```")) {
         inCodeBlock = !inCodeBlock;
       }
 
       if (inCodeBlock) {
-        currentSection += line + '\n';
+        currentSection += line + "\n";
         continue;
       }
 
@@ -247,9 +345,9 @@ export class ContentFilter {
         if (currentSection.trim() && this.isWorthKeeping(currentSection)) {
           sections.push(currentSection.trim());
         }
-        currentSection = line + '\n';
+        currentSection = line + "\n";
       } else {
-        currentSection += line + '\n';
+        currentSection += line + "\n";
       }
     }
 

@@ -188,14 +188,14 @@ For more control over content structure:
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-  <title>My Page</title>
-  <meta name="description" content="Page description">
-</head>
-<body>
-  <h1>My Page</h1>
-  <p>Content goes here.</p>
-</body>
+  <head>
+    <title>My Page</title>
+    <meta name="description" content="Page description" />
+  </head>
+  <body>
+    <h1>My Page</h1>
+    <p>Content goes here.</p>
+  </body>
 </html>
 ```
 
@@ -208,11 +208,7 @@ For structured content or data:
   "title": "Product Page",
   "description": "Product description",
   "price": "$99.99",
-  "features": [
-    "Feature 1",
-    "Feature 2",
-    "Feature 3"
-  ]
+  "features": ["Feature 1", "Feature 2", "Feature 3"]
 }
 ```
 
@@ -221,6 +217,7 @@ For structured content or data:
 ### Built-in Themes
 
 #### Default Theme
+
 Clean, minimal design suitable for any type of site:
 
 ```json
@@ -230,6 +227,7 @@ Clean, minimal design suitable for any type of site:
 ```
 
 #### Blog Theme
+
 Optimized for blog content with sidebar and navigation:
 
 ```json
@@ -244,6 +242,7 @@ Optimized for blog content with sidebar and navigation:
 ```
 
 #### Documentation Theme
+
 Perfect for technical documentation:
 
 ```json
@@ -299,6 +298,7 @@ site-generator dev
 ```
 
 This provides:
+
 - Hot reloading
 - Live preview
 - Error overlay
@@ -326,16 +326,19 @@ pnpm test --watch
 The generated site is a collection of static files that can be deployed anywhere:
 
 #### Netlify
+
 1. Connect your repository to Netlify
 2. Set build command: `npx @site-generator/cli build`
 3. Set publish directory: `dist`
 
 #### Vercel
+
 1. Import your repository to Vercel
 2. Set build command: `npx @site-generator/cli build`
 3. Set output directory: `dist`
 
 #### GitHub Pages
+
 1. Enable GitHub Pages in repository settings
 2. Set source to GitHub Actions
 3. Use the provided GitHub Actions workflow
@@ -357,6 +360,7 @@ rsync -av dist/ user@server:/path/to/website/
 ### Common Issues
 
 #### Build Fails
+
 ```bash
 # Check for syntax errors in content
 npx @site-generator/cli build --verbose
@@ -366,6 +370,7 @@ npx @site-generator/cli build --no-cache
 ```
 
 #### Performance Issues
+
 ```bash
 # Reduce parallel workers
 npx @site-generator/cli build --parallel 2
@@ -375,6 +380,7 @@ npx @site-generator/cli build --no-optimize
 ```
 
 #### Memory Issues
+
 ```bash
 # Increase Node.js memory limit
 node --max-old-space-size=8192 ./node_modules/.bin/site-generator build

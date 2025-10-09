@@ -1,5 +1,10 @@
-import { URL } from 'url';
-import { logger } from '@site-generator/core';
+import { URL } from "url";
+const logger = {
+  info: (...args: any[]) => console.log("[INFO]", ...args),
+  error: (...args: any[]) => console.error("[ERROR]", ...args),
+  warn: (...args: any[]) => console.warn("[WARN]", ...args),
+  debug: (...args: any[]) => console.debug("[DEBUG]", ...args),
+};
 
 export class UrlNormalizer {
   /**
@@ -8,13 +13,13 @@ export class UrlNormalizer {
   normalize(url: string): string {
     try {
       // Don't normalize data URLs
-      if (url.startsWith('data:')) {
+      if (url.startsWith("data:")) {
         return url;
       }
 
       // Add protocol if missing
       if (!url.match(/^https?:\/\//i)) {
-        url = 'https://' + url;
+        url = "https://" + url;
       }
 
       const parsedUrl = new URL(url);
@@ -24,13 +29,15 @@ export class UrlNormalizer {
       parsedUrl.pathname = parsedUrl.pathname.toLowerCase();
 
       // Remove default ports
-      if ((parsedUrl.protocol === 'https:' && parsedUrl.port === '443') ||
-          (parsedUrl.protocol === 'http:' && parsedUrl.port === '80')) {
-        parsedUrl.port = '';
+      if (
+        (parsedUrl.protocol === "https:" && parsedUrl.port === "443") ||
+        (parsedUrl.protocol === "http:" && parsedUrl.port === "80")
+      ) {
+        parsedUrl.port = "";
       }
 
       // Remove trailing slash from path (except root)
-      if (parsedUrl.pathname !== '/' && parsedUrl.pathname.endsWith('/')) {
+      if (parsedUrl.pathname !== "/" && parsedUrl.pathname.endsWith("/")) {
         parsedUrl.pathname = parsedUrl.pathname.slice(0, -1);
       }
 
@@ -50,7 +57,9 @@ export class UrlNormalizer {
 
       return parsedUrl.toString();
     } catch (error) {
-      logger.warn(`Failed to normalize URL: ${url}`, { error: error instanceof Error ? error.message : String(error) });
+      logger.warn(`Failed to normalize URL: ${url}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return url;
     }
   }
@@ -75,7 +84,7 @@ export class UrlNormalizer {
       const parsedUrl = new URL(url);
       return parsedUrl.hostname;
     } catch {
-      return '';
+      return "";
     }
   }
 
@@ -87,7 +96,7 @@ export class UrlNormalizer {
       const parsedUrl = new URL(url);
       return parsedUrl.pathname;
     } catch {
-      return '';
+      return "";
     }
   }
 
@@ -97,7 +106,7 @@ export class UrlNormalizer {
   removeQuery(url: string): string {
     try {
       const parsedUrl = new URL(url);
-      parsedUrl.search = '';
+      parsedUrl.search = "";
       return parsedUrl.toString();
     } catch {
       return url;
@@ -110,7 +119,7 @@ export class UrlNormalizer {
   removeFragment(url: string): string {
     try {
       const parsedUrl = new URL(url);
-      parsedUrl.hash = '';
+      parsedUrl.hash = "";
       return parsedUrl.toString();
     } catch {
       return url;
@@ -154,7 +163,7 @@ export class UrlNormalizer {
   withoutTrailingSlash(url: string): string {
     try {
       const parsedUrl = new URL(url);
-      if (parsedUrl.pathname !== '/' && parsedUrl.pathname.endsWith('/')) {
+      if (parsedUrl.pathname !== "/" && parsedUrl.pathname.endsWith("/")) {
         parsedUrl.pathname = parsedUrl.pathname.slice(0, -1);
       }
       return parsedUrl.toString();
@@ -169,12 +178,12 @@ export class UrlNormalizer {
   withTrailingSlash(url: string): string {
     try {
       const parsedUrl = new URL(url);
-      if (parsedUrl.pathname === '/') {
+      if (parsedUrl.pathname === "/") {
         return parsedUrl.toString();
       }
 
-      if (!parsedUrl.pathname.endsWith('/')) {
-        parsedUrl.pathname += '/';
+      if (!parsedUrl.pathname.endsWith("/")) {
+        parsedUrl.pathname += "/";
       }
       return parsedUrl.toString();
     } catch {

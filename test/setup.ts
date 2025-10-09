@@ -1,16 +1,16 @@
-import { beforeAll, vi } from 'vitest';
+import { beforeAll, vi } from "vitest";
 
 // Global test setup
 beforeAll(() => {
   // Set up global test environment
-  process.env.NODE_ENV = 'test';
+  process.env.NODE_ENV = "test";
 
   // Mock performance monitoring
   global.performance = {
     ...global.performance,
     mark: vi.fn(),
     measure: vi.fn(),
-    now: vi.fn(() => Date.now())
+    now: vi.fn(() => Date.now()),
   };
 
   // Mock console methods for cleaner test output
@@ -21,34 +21,34 @@ beforeAll(() => {
     warn: vi.fn(),
     error: vi.fn(),
     info: vi.fn(),
-    debug: vi.fn()
+    debug: vi.fn(),
   };
 
   // Only override in test environment
-  if (process.env.NODE_ENV === 'test') {
+  if (process.env.NODE_ENV === "test") {
     global.console = mockConsole;
   }
 
   // Clean up after all tests
-  process.on('exit', () => {
+  process.on("exit", () => {
     global.console = originalConsole;
   });
 
   // Suppress expected Piscina worker loading errors
   // These occur because we mock Piscina to fail and use direct analysis
-  const originalListeners = process.listeners('uncaughtException');
-  process.removeAllListeners('uncaughtException');
-  
-  process.on('uncaughtException', (error: Error) => {
+  const originalListeners = process.listeners("uncaughtException");
+  process.removeAllListeners("uncaughtException");
+
+  process.on("uncaughtException", (error: Error) => {
     // Suppress expected worker module errors
-    const errorMessage = error.message || '';
-    const isWorkerError = 
-      errorMessage.includes('Cannot find module') && 
-      (errorMessage.includes('workers/') || errorMessage.includes('worker.js'));
-    
+    const errorMessage = error.message || "";
+    const isWorkerError =
+      errorMessage.includes("Cannot find module") &&
+      (errorMessage.includes("workers/") || errorMessage.includes("worker.js"));
+
     if (!isWorkerError) {
       // Re-emit non-worker errors to original handlers
-      originalListeners.forEach(listener => listener(error));
+      originalListeners.forEach((listener) => listener(error));
     }
     // Silently ignore worker loading errors
   });
@@ -71,13 +71,13 @@ global.testUtils = {
 
   // Helper to create mock timeouts
   createMockTimeout: (ms: number = 100) => {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       setTimeout(resolve, ms);
     });
   },
 
   // Helper to create mock errors
-  createMockError: (message: string = 'Test error') => {
+  createMockError: (message: string = "Test error") => {
     return new Error(message);
   },
 
@@ -86,61 +86,63 @@ global.testUtils = {
     return Array.from({ length: size }, (_, i) => ({
       id: i,
       name: `Test item ${i}`,
-      value: Math.random()
+      value: Math.random(),
     }));
-  }
+  },
 };
 
 // Mock filesystem operations for tests
-vi.mock('fs', () => ({
+vi.mock("fs", () => ({
   default: {
     readFile: vi.fn(),
     writeFile: vi.fn(),
     existsSync: vi.fn(),
     mkdirSync: vi.fn(),
-    readdirSync: vi.fn()
-  }
+    readdirSync: vi.fn(),
+  },
 }));
 
 // Mock path operations
-vi.mock('path', () => ({
+vi.mock("path", () => ({
   default: {
-    join: vi.fn((...args) => args.join('/')),
-    resolve: vi.fn((...args) => args.join('/')),
-    dirname: vi.fn((p) => p.split('/').slice(0, -1).join('/')),
-    basename: vi.fn((p) => p.split('/').pop()),
-    extname: vi.fn((p) => p.split('.').pop())
-  }
+    join: vi.fn((...args) => args.join("/")),
+    resolve: vi.fn((...args) => args.join("/")),
+    dirname: vi.fn((p) => p.split("/").slice(0, -1).join("/")),
+    basename: vi.fn((p) => p.split("/").pop()),
+    extname: vi.fn((p) => p.split(".").pop()),
+  },
 }));
 
 // Mock os operations
-vi.mock('os', () => ({
+vi.mock("os", () => ({
   default: {
-    cpus: vi.fn(() => Array.from({ length: 16 }, (_, i) => ({ model: `CPU ${i}` }))),
+    cpus: vi.fn(() =>
+      Array.from({ length: 16 }, (_, i) => ({ model: `CPU ${i}` })),
+    ),
     totalmem: vi.fn(() => 16 * 1024 * 1024 * 1024), // 16GB
     freemem: vi.fn(() => 8 * 1024 * 1024 * 1024), // 8GB
-    platform: vi.fn(() => 'test'),
-    arch: vi.fn(() => 'x64')
-  }
+    platform: vi.fn(() => "test"),
+    arch: vi.fn(() => "x64"),
+  },
 }));
 
 // Mock crypto operations
-vi.mock('crypto', () => ({
+vi.mock("crypto", () => ({
   default: {
-    randomBytes: vi.fn(() => Buffer.from('mock-random-bytes')),
+    randomBytes: vi.fn(() => Buffer.from("mock-random-bytes")),
     createHash: vi.fn(() => ({
       update: vi.fn(),
-      digest: vi.fn(() => 'mock-hash')
-    }))
-  }
+      digest: vi.fn(() => "mock-hash"),
+    })),
+  },
 }));
 
 // Mock stream operations
-vi.mock('stream', () => ({
+vi.mock("stream", () => ({
   default: {
     Readable: vi.fn(),
     Writable: vi.fn(),
     Transform: vi.fn(),
-    Duplex: vi.fn()
-  }
+    Duplex: vi.fn(),
+  },
 }));

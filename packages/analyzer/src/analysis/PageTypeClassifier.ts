@@ -5,7 +5,7 @@ import type {
   PageType,
   Pattern,
   FeatureVector,
-} from '../types/analysis.types';
+} from '../types/analysis.types.js';
 
 export class PageTypeClassifier implements Analyzer {
   name = 'page-type-classifier';

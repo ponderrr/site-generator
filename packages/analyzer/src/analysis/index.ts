@@ -1,5 +1,5 @@
 // Analysis module exports
-export { AnalysisOrchestrator } from './AnalysisOrchestrator';
-export { PageTypeClassifier } from './PageTypeClassifier';
-export { SectionDetector } from './SectionDetector';
-export { ContentMetricsAnalyzer } from './ContentMetricsAnalyzer';
+export { AnalysisOrchestrator } from './AnalysisOrchestrator.js';
+export { PageTypeClassifier } from './PageTypeClassifier.js';
+export { SectionDetector } from './SectionDetector.js';
+export { ContentMetricsAnalyzer } from './ContentMetricsAnalyzer.js';

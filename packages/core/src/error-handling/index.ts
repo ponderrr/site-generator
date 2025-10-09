@@ -1,16 +1,26 @@
-import { ProcessingError, ErrorContext, RetryConfig } from '../types';
+import { ProcessingError, ErrorContext, RetryConfig } from "../types/index.js";
 
 export class ErrorHandler {
   private errorCounts: Map<string, number> = new Map();
-  private circuitBreakers: Map<string, { failures: number; lastFailure: number; state: 'closed' | 'open' | 'half-open'; resetTimeout?: NodeJS.Timeout }> = new Map();
+  private circuitBreakers: Map<
+    string,
+    {
+      failures: number;
+      lastFailure: number;
+      state: "closed" | "open" | "half-open";
+      resetTimeout?: NodeJS.Timeout;
+    }
+  > = new Map();
 
-  constructor(private retryConfig: RetryConfig = {
-    maxAttempts: 3,
-    baseDelay: 1000,
-    maxDelay: 30000,
-    backoffFactor: 2,
-    retryableErrors: ['NETWORK_ERROR', 'TIMEOUT', 'TEMPORARY_FAILURE']
-  }) {}
+  constructor(
+    private retryConfig: RetryConfig = {
+      maxAttempts: 3,
+      baseDelay: 1000,
+      maxDelay: 30000,
+      backoffFactor: 2,
+      retryableErrors: ["NETWORK_ERROR", "TIMEOUT", "TEMPORARY_FAILURE"],
+    },
+  ) {}
 
   /**
    * Handle an error with retry logic
@@ -18,7 +28,7 @@ export class ErrorHandler {
   async handleWithRetry<T>(
     operation: () => Promise<T>,
     context: ErrorContext,
-    customRetryConfig?: Partial<RetryConfig>
+    customRetryConfig?: Partial<RetryConfig>,
   ): Promise<T> {
     const config = { ...this.retryConfig, ...customRetryConfig };
     let lastError: Error | null = null;
@@ -28,10 +38,10 @@ export class ErrorHandler {
         // Check circuit breaker
         if (this.isCircuitOpen(context.component)) {
           throw this.createProcessingError(
-            'Circuit breaker is open',
-            'CIRCUIT_OPEN',
+            "Circuit breaker is open",
+            "CIRCUIT_OPEN",
             context,
-            false
+            false,
           );
         }
 
@@ -56,7 +66,7 @@ export class ErrorHandler {
         // Calculate delay with exponential backoff
         const delay = Math.min(
           config.baseDelay * Math.pow(config.backoffFactor, attempt - 1),
-          config.maxDelay
+          config.maxDelay,
         );
 
         await this.delay(delay);
@@ -75,7 +85,7 @@ export class ErrorHandler {
     code: string,
     context: ErrorContext,
     retryable: boolean = false,
-    severity: 'low' | 'medium' | 'high' | 'critical' = 'medium'
+    severity: "low" | "medium" | "high" | "critical" = "medium",
   ): ProcessingError {
     const error = new Error(message) as ProcessingError;
     error.code = code;
@@ -90,20 +100,29 @@ export class ErrorHandler {
    * Check if an error is retryable
    */
   private isRetryableError(error: Error, config: RetryConfig): boolean {
-    if (error instanceof Error && 'retryable' in error) {
+    if (error instanceof Error && "retryable" in error) {
       return (error as ProcessingError).retryable;
     }
 
-    return config.retryableErrors?.some(errorType =>
-      error.message.includes(errorType) || error.name.includes(errorType)
-    ) ?? false;
+    return (
+      config.retryableErrors?.some(
+        (errorType) =>
+          error.message.includes(errorType) || error.name.includes(errorType),
+      ) ?? false
+    );
   }
 
   /**
    * Enrich an error with context information
    */
-  private enrichError(error: Error, context: ErrorContext, attempts: number): Error {
-    const enrichedError = new Error(`${error.message} (Operation: ${context.operation}, Component: ${context.component}, Attempts: ${attempts})`);
+  private enrichError(
+    error: Error,
+    context: ErrorContext,
+    attempts: number,
+  ): Error {
+    const enrichedError = new Error(
+      `${error.message} (Operation: ${context.operation}, Component: ${context.component}, Attempts: ${attempts})`,
+    );
     enrichedError.stack = `${enrichedError.stack}\nContext: ${JSON.stringify(context, null, 2)}`;
     return enrichedError;
   }
@@ -128,21 +147,25 @@ export class ErrorHandler {
    * Update circuit breaker state
    */
   private updateCircuitBreaker(component: string, failed: boolean): void {
-    const breaker = this.circuitBreakers.get(component) || { failures: 0, lastFailure: 0, state: 'closed' as const };
+    const breaker = this.circuitBreakers.get(component) || {
+      failures: 0,
+      lastFailure: 0,
+      state: "closed" as const,
+    };
 
     if (failed) {
       breaker.failures++;
       breaker.lastFailure = Date.now();
-      breaker.state = breaker.failures >= 5 ? 'open' : 'closed';
-      
+      breaker.state = breaker.failures >= 5 ? "open" : "closed";
+
       // Schedule automatic reset when circuit opens
-      if (breaker.state === 'open') {
+      if (breaker.state === "open") {
         this.scheduleCircuitBreakerReset(component);
       }
     } else {
       breaker.failures = Math.max(0, breaker.failures - 1);
-      breaker.state = breaker.failures === 0 ? 'closed' : 'half-open';
-      
+      breaker.state = breaker.failures === 0 ? "closed" : "half-open";
+
       // Clear any pending reset timeout on success
       if (breaker.resetTimeout) {
         clearTimeout(breaker.resetTimeout);
@@ -161,7 +184,7 @@ export class ErrorHandler {
     if (!breaker) return;
 
     const resetTimeout = 60000; // 1 minute
-    
+
     // Clear any existing reset timeout before scheduling a new one
     if (breaker.resetTimeout) {
       clearTimeout(breaker.resetTimeout);
@@ -169,15 +192,17 @@ export class ErrorHandler {
 
     breaker.resetTimeout = setTimeout(() => {
       const currentBreaker = this.circuitBreakers.get(component);
-      if (currentBreaker && currentBreaker.state === 'open') {
-        currentBreaker.state = 'half-open';
+      if (currentBreaker && currentBreaker.state === "open") {
+        currentBreaker.state = "half-open";
         currentBreaker.failures = 0; // Reset failure count for half-open
         currentBreaker.resetTimeout = undefined;
         this.circuitBreakers.set(component, currentBreaker);
-        console.log(`🔄 Circuit breaker for ${component} automatically reset to half-open`);
+        console.log(
+          `🔄 Circuit breaker for ${component} automatically reset to half-open`,
+        );
       }
     }, resetTimeout);
-    
+
     this.circuitBreakers.set(component, breaker);
   }
 
@@ -188,11 +213,12 @@ export class ErrorHandler {
     const breaker = this.circuitBreakers.get(component);
     if (!breaker) return false;
 
-    if (breaker.state === 'open') {
+    if (breaker.state === "open") {
       // Check if we should transition to half-open
       const timeSinceLastFailure = Date.now() - breaker.lastFailure;
-      if (timeSinceLastFailure > 60000) { // 1 minute
-        breaker.state = 'half-open';
+      if (timeSinceLastFailure > 60000) {
+        // 1 minute
+        breaker.state = "half-open";
         this.circuitBreakers.set(component, breaker);
         return false;
       }
@@ -207,14 +233,16 @@ export class ErrorHandler {
    */
   getCircuitBreakerStatus(): Array<{
     component: string;
-    state: 'closed' | 'open' | 'half-open';
+    state: "closed" | "open" | "half-open";
     failures: number;
     lastFailure: number;
   }> {
-    return Array.from(this.circuitBreakers.entries()).map(([component, breaker]) => ({
-      component,
-      ...breaker
-    }));
+    return Array.from(this.circuitBreakers.entries()).map(
+      ([component, breaker]) => ({
+        component,
+        ...breaker,
+      }),
+    );
   }
 
   /**
@@ -246,7 +274,7 @@ export class ErrorHandler {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
@@ -256,31 +284,39 @@ export const defaultErrorHandler = new ErrorHandler();
 // Utility functions for common error patterns
 export const ErrorPatterns = {
   isNetworkError: (error: Error): boolean => {
-    return error.message.includes('ECONNRESET') ||
-           error.message.includes('ENOTFOUND') ||
-           error.message.includes('ETIMEDOUT') ||
-           error.message.includes('network');
+    return (
+      error.message.includes("ECONNRESET") ||
+      error.message.includes("ENOTFOUND") ||
+      error.message.includes("ETIMEDOUT") ||
+      error.message.includes("network")
+    );
   },
 
   isTimeoutError: (error: Error): boolean => {
-    return error.message.includes('timeout') ||
-           error.message.includes('ETIMEDOUT');
+    return (
+      error.message.includes("timeout") || error.message.includes("ETIMEDOUT")
+    );
   },
 
   isTemporaryError: (error: Error): boolean => {
-    return error.message.includes('503') ||
-           error.message.includes('502') ||
-           error.message.includes('500') ||
-           error.message.includes('temporary');
+    return (
+      error.message.includes("503") ||
+      error.message.includes("502") ||
+      error.message.includes("500") ||
+      error.message.includes("temporary")
+    );
   },
 
-  getErrorSeverity: (error: Error): 'low' | 'medium' | 'high' | 'critical' => {
-    if (ErrorPatterns.isNetworkError(error) || ErrorPatterns.isTimeoutError(error)) {
-      return 'medium';
+  getErrorSeverity: (error: Error): "low" | "medium" | "high" | "critical" => {
+    if (
+      ErrorPatterns.isNetworkError(error) ||
+      ErrorPatterns.isTimeoutError(error)
+    ) {
+      return "medium";
     }
     if (ErrorPatterns.isTemporaryError(error)) {
-      return 'high';
+      return "high";
     }
-    return 'low';
-  }
+    return "low";
+  },
 };

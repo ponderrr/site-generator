@@ -125,40 +125,40 @@ export interface SectionMetrics {
 }
 
 export type PageType =
-  | 'home'
-  | 'about'
-  | 'pricing'
-  | 'contact'
-  | 'blog-post'
-  | 'documentation'
-  | 'api-reference'
-  | 'product'
-  | 'service'
-  | 'case-study'
-  | 'testimonial'
-  | 'landing'
-  | 'error'
-  | 'other';
+  | "home"
+  | "about"
+  | "pricing"
+  | "contact"
+  | "blog-post"
+  | "documentation"
+  | "api-reference"
+  | "product"
+  | "service"
+  | "case-study"
+  | "testimonial"
+  | "landing"
+  | "error"
+  | "other";
 
 export type SectionType =
-  | 'hero'
-  | 'features'
-  | 'testimonials'
-  | 'pricing'
-  | 'cta'
-  | 'content'
-  | 'sidebar'
-  | 'footer'
-  | 'navigation'
-  | 'header'
-  | 'form'
-  | 'comparison'
-  | 'faq';
+  | "hero"
+  | "features"
+  | "testimonials"
+  | "pricing"
+  | "cta"
+  | "content"
+  | "sidebar"
+  | "footer"
+  | "navigation"
+  | "header"
+  | "form"
+  | "comparison"
+  | "faq";
 
 export interface CrossReference {
   sourceUrl: string;
   targetUrl: string;
-  type: 'similar' | 'reference' | 'duplicate';
+  type: "similar" | "reference" | "duplicate";
   confidence: number;
   sharedSections: string[];
 }
@@ -187,7 +187,7 @@ export interface Pattern {
   bulletPoints?: { min: number };
   quotes?: boolean;
   names?: boolean;
-  position?: 'first' | 'middle' | 'last';
+  position?: "first" | "middle" | "last";
   weight: number;
 }
 
@@ -197,7 +197,7 @@ export interface SectionPattern {
 }
 
 export interface SectionIndicator {
-  position?: 'first' | 'middle' | 'last';
+  position?: "first" | "middle" | "last";
   heading?: RegExp;
   structure?: string;
   wordCount?: { min: number; max: number };
@@ -257,13 +257,13 @@ export interface AnalysisProgress {
 
 export interface WorkerStats {
   threadId: number;
-  status: 'idle' | 'busy' | 'terminating';
+  status: "idle" | "busy" | "terminating";
   memoryUsage: NodeJS.MemoryUsage;
   tasksCompleted: number;
 }
 
 export interface AnalysisWorkerTask {
-  type: 'analyze' | 'health-check';
+  type: "analyze" | "health-check";
   page?: ExtractedPage;
   analyzers?: string[];
   taskId: string;
@@ -279,7 +279,7 @@ export interface AnalysisWorkerResult {
 
 export interface AnalysisConfig {
   outputDir: string;
-  format: 'json' | 'markdown' | 'html';
+  format: "json" | "markdown" | "html";
   includeRaw: boolean;
   includeMetadata: boolean;
   maxDepth: number;

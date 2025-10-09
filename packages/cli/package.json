@@ -1,34 +1,41 @@
 {
   "name": "@site-generator/cli",
   "version": "0.1.0",
-  "description": "Command line interface for the site generator",
+  "type": "module",
+  "description": "Command line interface for content extraction, crawling, and analysis",
   "bin": {
     "site-generator": "dist/index.js"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "sideEffects": false,
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts",
-    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "build": "tsc && node -e \"console.log('CLI built successfully')\"",
+    "dev": "tsc --watch",
     "clean": "rm -rf dist .cache"
   },
   "dependencies": {
-    "@site-generator/core": "workspace:*",
-    "@site-generator/extractor": "workspace:*",
     "@site-generator/analyzer": "workspace:*",
-    "@site-generator/generator": "workspace:*",
+    "@site-generator/core": "workspace:*",
+    "@site-generator/crawler": "workspace:*",
+    "@site-generator/extractor": "workspace:*",
+    "boxen": "^5.1.2",
+    "chalk": "^5.3.0",
+    "cli-progress": "^3.12.0",
     "commander": "^12.0.0",
     "inquirer": "^9.2.14",
     "ora": "^8.0.1",
-    "chalk": "^5.3.0",
-    "cli-progress": "^3.12.0",
-    "boxen": "^5.1.2",
     "update-notifier": "^7.0.0"
   },
   "devDependencies": {
-    "tsup": "^8.0.0",
     "@types/node": "^20.0.0",
+    "tsup": "^8.5.0",
     "typescript": "^5.4.0"
   }
 }

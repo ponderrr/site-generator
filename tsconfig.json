@@ -1,69 +1,19 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-
-    // Compilation
-    "allowJs": false,
-    "checkJs": false,
+    "lib": ["ES2022"],
     "strict": true,
-    "noEmit": true,
-    "emitDeclarationOnly": false,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-
-    // Performance optimizations
-    "incremental": true,
-    "tsBuildInfoFile": ".cache/tsbuildinfo",
-    "skipLibCheck": true,
-    "preserveWatchOutput": true,
-    "assumeChangesOnlyAffectDirectDependencies": true,
-
-    // Module resolution
-    "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-
-    // Output
-    "outDir": "dist",
-    "rootDir": ".",
-
-    // Advanced
-    "rootDirs": [
-      ".",
-      "packages/core/src",
-      "packages/extractor/src",
-      "packages/analyzer/src",
-      "packages/generator/src",
-      "packages/cli/src"
-    ],
-
-    // Experimental
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-
-    // Type checking
-    "exactOptionalPropertyTypes": false,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitOverride": true,
-    "noImplicitReturns": true,
-    "noPropertyAccessFromIndexSignature": false,
-    "noUncheckedIndexedAccess": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "allowSyntheticDefaultImports": true
   },
-  "files": [],
-  "references": [
-    { "path": "packages/core/tsconfig.json" },
-    { "path": "packages/extractor/tsconfig.json" },
-    { "path": "packages/analyzer/tsconfig.json" },
-    { "path": "packages/generator/tsconfig.json" },
-    { "path": "packages/cli/tsconfig.json" }
-  ]
+  "exclude": ["node_modules", "**/dist", "**/node_modules"]
 }

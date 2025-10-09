@@ -7,6 +7,7 @@ The Site Generator processes content through a sophisticated pipeline that trans
 ## Input Sources
 
 ### Supported Input Types
+
 - **URLs**: Web pages and websites
 - **HTML Files**: Local HTML files
 - **Markdown Files**: Markdown documents
@@ -15,18 +16,20 @@ The Site Generator processes content through a sophisticated pipeline that trans
 - **File Systems**: Directory structures and file collections
 
 ### Input Validation
+
 ```typescript
 interface InputValidation {
-  url?: string;           // Valid URL format
-  file?: string;          // Existing file path
-  content?: string;       // Raw content string
-  metadata?: object;      // Additional metadata
+  url?: string; // Valid URL format
+  file?: string; // Existing file path
+  content?: string; // Raw content string
+  metadata?: object; // Additional metadata
 }
 ```
 
 ## Stage 1: Content Extraction
 
 ### HTML Parsing Pipeline
+
 ```mermaid
 flowchart TD
     A[Raw HTML] --> B[HTML Parser]
@@ -40,28 +43,30 @@ flowchart TD
 ### Data Transformations
 
 #### Input: Raw HTML
+
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Example Page</title>
-  <meta name="description" content="Example description">
-</head>
-<body>
-  <h1>Main Title</h1>
-  <p>Content paragraph with <a href="/link">link</a>.</p>
-  <img src="/image.jpg" alt="Example image">
-</body>
+  <head>
+    <title>Example Page</title>
+    <meta name="description" content="Example description" />
+  </head>
+  <body>
+    <h1>Main Title</h1>
+    <p>Content paragraph with <a href="/link">link</a>.</p>
+    <img src="/image.jpg" alt="Example image" />
+  </body>
 </html>
 ```
 
 #### Output: Structured Content
+
 ```typescript
 interface ExtractedContent {
   url: string;
   title: string;
-  content: string;        // Cleaned HTML
-  markdown: string;       // Converted markdown
+  content: string; // Cleaned HTML
+  markdown: string; // Converted markdown
   metadata: {
     description: string;
     author?: string;
@@ -75,6 +80,7 @@ interface ExtractedContent {
 ```
 
 ### Content Cleaning Process
+
 1. **Script Removal**: Strip JavaScript and tracking scripts
 2. **Style Normalization**: Normalize CSS styles
 3. **Whitespace Cleaning**: Remove excessive whitespace
@@ -82,6 +88,7 @@ interface ExtractedContent {
 5. **Content Validation**: Validate content integrity
 
 ### Media Extraction
+
 ```typescript
 interface MediaExtraction {
   images: ImageFile[];
@@ -94,8 +101,8 @@ interface ImageFile {
   url: string;
   localPath: string;
   optimized: boolean;
-  formats: string[];      // ['webp', 'jpg', 'png']
-  sizes: ImageSize[];     // Responsive sizes
+  formats: string[]; // ['webp', 'jpg', 'png']
+  sizes: ImageSize[]; // Responsive sizes
   metadata: ImageMetadata;
 }
 ```
@@ -103,6 +110,7 @@ interface ImageFile {
 ## Stage 2: Content Analysis
 
 ### Analysis Pipeline
+
 ```mermaid
 flowchart TD
     A[Structured Content] --> B[Metrics Analyzer]
@@ -117,62 +125,66 @@ flowchart TD
 ```
 
 ### Metrics Analysis
+
 ```typescript
 interface ContentMetrics {
   wordCount: number;
-  readingTime: number;      // Estimated minutes
-  complexity: number;       // 0-1 scale
-  readability: number;      // Flesch-Kincaid score
-  language: string;         // Detected language
-  sentiment: number;        // -1 to 1 scale
-  topics: string[];         // Detected topics
-  keywords: KeywordInfo[];  // Keyword analysis
+  readingTime: number; // Estimated minutes
+  complexity: number; // 0-1 scale
+  readability: number; // Flesch-Kincaid score
+  language: string; // Detected language
+  sentiment: number; // -1 to 1 scale
+  topics: string[]; // Detected topics
+  keywords: KeywordInfo[]; // Keyword analysis
 }
 ```
 
 ### Page Classification
+
 ```typescript
 interface PageClassification {
   type: PageType;
-  confidence: number;       // 0-1 confidence score
+  confidence: number; // 0-1 confidence score
   features: ClassificationFeature[];
   rules: ClassificationRule[];
 }
 
-type PageType = 
-  | 'article' 
-  | 'documentation' 
-  | 'landing' 
-  | 'product' 
-  | 'about' 
-  | 'contact' 
-  | 'gallery' 
-  | 'form';
+type PageType =
+  | "article"
+  | "documentation"
+  | "landing"
+  | "product"
+  | "about"
+  | "contact"
+  | "gallery"
+  | "form";
 ```
 
 ### Section Detection
+
 ```typescript
 interface ContentSection {
   type: SectionType;
-  level?: number;          // For headings
+  level?: number; // For headings
   content: string;
   metadata: SectionMetadata;
-  position: number;        // Order in document
+  position: number; // Order in document
 }
 
-type SectionType = 
-  | 'heading' 
-  | 'paragraph' 
-  | 'list' 
-  | 'code' 
-  | 'quote' 
-  | 'image' 
-  | 'table';
+type SectionType =
+  | "heading"
+  | "paragraph"
+  | "list"
+  | "code"
+  | "quote"
+  | "image"
+  | "table";
 ```
 
 ## Stage 3: Cross-Page Analysis
 
 ### Relationship Detection
+
 ```mermaid
 flowchart TD
     A[Page A] --> B[Similarity Analysis]
@@ -185,9 +197,10 @@ flowchart TD
 ```
 
 ### Similarity Analysis
+
 ```typescript
 interface SimilarityAnalysis {
-  embeddings: number[];     // Vector embeddings
+  embeddings: number[]; // Vector embeddings
   similarities: SimilarityPair[];
   clusters: TopicCluster[];
   recommendations: PageRecommendation[];
@@ -196,12 +209,13 @@ interface SimilarityAnalysis {
 interface SimilarityPair {
   pageA: string;
   pageB: string;
-  similarity: number;      // 0-1 similarity score
+  similarity: number; // 0-1 similarity score
   factors: SimilarityFactor[];
 }
 ```
 
 ### Navigation Generation
+
 ```typescript
 interface NavigationStructure {
   hierarchy: NavigationNode[];
@@ -221,6 +235,7 @@ interface NavigationNode {
 ## Stage 4: Site Generation
 
 ### Generation Pipeline
+
 ```mermaid
 flowchart TD
     A[Analysis Results] --> B[Template Selection]
@@ -232,6 +247,7 @@ flowchart TD
 ```
 
 ### Template Processing
+
 ```typescript
 interface TemplateData {
   page: PageData;
@@ -252,6 +268,7 @@ interface PageData {
 ```
 
 ### Asset Processing
+
 ```typescript
 interface AssetProcessing {
   images: ImageOptimization[];
@@ -269,6 +286,7 @@ interface ImageOptimization {
 ```
 
 ### SEO Enhancement
+
 ```typescript
 interface SEOEnhancement {
   meta: MetaTags;
@@ -290,6 +308,7 @@ interface MetaTags {
 ## Stage 5: Output Generation
 
 ### File Structure
+
 ```
 dist/
 ├── index.html
@@ -313,6 +332,7 @@ dist/
 ```
 
 ### Performance Optimization
+
 ```typescript
 interface PerformanceOptimization {
   compression: CompressionSettings;
@@ -325,52 +345,56 @@ interface PerformanceOptimization {
 interface CompressionSettings {
   gzip: boolean;
   brotli: boolean;
-  level: number;           // Compression level
-  threshold: number;       // Minimum file size
+  level: number; // Compression level
+  threshold: number; // Minimum file size
 }
 ```
 
 ## Data Flow Monitoring
 
 ### Metrics Collection
+
 ```typescript
 interface FlowMetrics {
   stage: ProcessingStage;
-  duration: number;        // Processing time
-  memory: MemoryUsage;     // Memory consumption
-  throughput: number;      // Items per second
-  errors: ErrorInfo[];     // Processing errors
+  duration: number; // Processing time
+  memory: MemoryUsage; // Memory consumption
+  throughput: number; // Items per second
+  errors: ErrorInfo[]; // Processing errors
   quality: QualityMetrics; // Output quality
 }
 
-type ProcessingStage = 
-  | 'extraction' 
-  | 'analysis' 
-  | 'generation' 
-  | 'optimization' 
-  | 'output';
+type ProcessingStage =
+  | "extraction"
+  | "analysis"
+  | "generation"
+  | "optimization"
+  | "output";
 ```
 
 ### Quality Assurance
+
 ```typescript
 interface QualityMetrics {
-  completeness: number;    // 0-1 completeness score
-  accuracy: number;        // 0-1 accuracy score
-  performance: number;     // 0-1 performance score
-  seo: number;            // 0-1 SEO score
-  accessibility: number;   // 0-1 accessibility score
+  completeness: number; // 0-1 completeness score
+  accuracy: number; // 0-1 accuracy score
+  performance: number; // 0-1 performance score
+  seo: number; // 0-1 SEO score
+  accessibility: number; // 0-1 accessibility score
 }
 ```
 
 ## Error Handling & Recovery
 
 ### Error Categories
+
 - **Input Errors**: Invalid input data or format
 - **Processing Errors**: Errors during content processing
 - **Resource Errors**: Memory, CPU, or I/O issues
 - **Output Errors**: File generation or writing errors
 
 ### Recovery Strategies
+
 ```typescript
 interface RecoveryStrategy {
   retry: RetryConfig;
@@ -389,12 +413,14 @@ interface RetryConfig {
 ## Performance Considerations
 
 ### Bottleneck Identification
+
 - **I/O Bound**: File reading/writing operations
 - **CPU Bound**: Content processing and analysis
 - **Memory Bound**: Large dataset processing
 - **Network Bound**: External API calls and downloads
 
 ### Optimization Strategies
+
 - **Parallel Processing**: Multi-threaded execution
 - **Caching**: Aggressive result caching
 - **Streaming**: Stream-based processing

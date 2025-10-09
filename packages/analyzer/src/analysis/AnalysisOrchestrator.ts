@@ -1,9 +1,9 @@
-import * as path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 import Piscina from 'piscina';
 import { LRUCache } from 'lru-cache';
 import { createHash } from 'crypto';
 import pLimit from 'p-limit';
-import { DEFAULT_WORKER_CONFIG, DEFAULT_CACHE_CONFIG, MemoryMonitor } from '../../../core/src/config/memory.config';
 import type {
   ExtractedPage,
   AnalysisResult,
@@ -15,14 +15,16 @@ import type {
   AnalysisWorkerTask,
   AnalysisWorkerResult,
   AnalysisConfig,
-} from '../types/analysis.types';
+} from '../types/analysis.types.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export class AnalysisOrchestrator {
   private workerPool: Piscina;
   private resultCache: LRUCache<string, AnalysisResult>;
   private taskCounter: number = 0;
   private progressCallback?: ((progress: AnalysisProgress) => void) | undefined;
-  private memoryMonitor: MemoryMonitor;
   private isMemoryPressureHigh: boolean = false;
   private healthCheckInterval?: NodeJS.Timeout | undefined;
   private activeTasks: Set<string> = new Set();
@@ -34,8 +36,8 @@ export class AnalysisOrchestrator {
       idleTimeout: 60000,
       maxQueue: 1000,
       resourceLimits: {
-        maxOldGenerationSizeMb: DEFAULT_WORKER_CONFIG.maxOldGenerationSizeMb,
-        maxYoungGenerationSizeMb: DEFAULT_WORKER_CONFIG.maxYoungGenerationSizeMb,
+        maxOldGenerationSizeMb: 512,
+        maxYoungGenerationSizeMb: 128,
       },
     },
     private analysisOptions: AnalysisOptions = {
@@ -48,10 +50,13 @@ export class AnalysisOrchestrator {
     }
   ) {
     // Initialize worker pool with CPU-optimized settings
-    // Use .js extension for compiled worker, .ts for development/testing
-    const workerExt = __filename.endsWith('.ts') ? '.ts' : '.js';
+    // Determine worker path - in dist/, workers are at ./workers/, in src/ at ../workers/
+    const workerPath = __filename.endsWith('.ts') 
+      ? resolve(__dirname, '../workers/analysis-worker.ts')
+      : resolve(__dirname, './workers/analysis-worker.js');
+    
     this.workerPool = new Piscina({
-      filename: path.resolve(__dirname, `../workers/analysis-worker${workerExt}`),
+      filename: workerPath,
       minThreads: options.minThreads,
       maxThreads: options.maxThreads,
       idleTimeout: options.idleTimeout,
@@ -59,20 +64,16 @@ export class AnalysisOrchestrator {
       resourceLimits: options.resourceLimits,
     });
 
-    // Result cache with content-based keys using centralized config
+    // Result cache with content-based keys
     this.resultCache = new LRUCache({
-      max: DEFAULT_CACHE_CONFIG.maxItems,
-      ttl: DEFAULT_CACHE_CONFIG.ttl,
+      max: 1000,
+      ttl: 1000 * 60 * 60, // 1 hour
       updateAgeOnGet: true,
       updateAgeOnHas: true,
       allowStale: true
     });
 
-    // Initialize memory monitor
-    this.memoryMonitor = new MemoryMonitor();
-
     this.setupWorkerMonitoring();
-    this.startMemoryMonitoring();
   }
 
   async analyzeContent(
@@ -284,9 +285,9 @@ export class AnalysisOrchestrator {
 
   private async analyzeDirectly(page: ExtractedPage): Promise<AnalysisResult> {
     // Import analyzers dynamically to avoid circular dependencies
-    const { ContentMetricsAnalyzer } = await import('./ContentMetricsAnalyzer');
-    const { PageTypeClassifier } = await import('./PageTypeClassifier');
-    const { SectionDetector } = await import('./SectionDetector');
+    const { ContentMetricsAnalyzer } = await import('./ContentMetricsAnalyzer.js');
+    const { PageTypeClassifier } = await import('./PageTypeClassifier.js');
+    const { SectionDetector } = await import('./SectionDetector.js');
 
     const startTime = Date.now();
     const metricsAnalyzer = new ContentMetricsAnalyzer();
@@ -590,28 +591,14 @@ export class AnalysisOrchestrator {
    * Start memory monitoring
    */
   private startMemoryMonitoring(): void {
-    this.memoryMonitor.startMonitoring(
-        (usage: NodeJS.MemoryUsage) => {
-        if (!this.isMemoryPressureHigh) {
-          console.warn('⚠️ High memory pressure detected, reducing batch processing');
-          this.isMemoryPressureHigh = true;
-        }
-      },
-        (usage: NodeJS.MemoryUsage) => {
-        console.error('🚨 Critical memory pressure detected!', usage);
-        // Force garbage collection
-        if (global.gc) {
-          global.gc();
-        }
-      }
-    );
+    // Simplified memory monitoring without external dependency
   }
 
   /**
    * Stop memory monitoring
    */
   private stopMemoryMonitoring(): void {
-    this.memoryMonitor.stopMonitoring();
+    // Cleanup
   }
 
   /**

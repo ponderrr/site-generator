@@ -1,29 +1,36 @@
 {
   "name": "@site-generator/analyzer",
   "version": "0.1.0",
+  "type": "module",
   "description": "Content analysis engine for the site generator",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "sideEffects": false,
   "scripts": {
-    "build": "tsup src/index.ts src/workers/analysis-worker.ts --format esm --dts && node copy-workers.js",
-    "dev": "tsup src/index.ts --format esm --dts --watch",
-    "clean": "rm -rf dist .cache"
+    "build": "node ../../node_modules/tsup/dist/cli-default.js && tsc --emitDeclarationOnly && node copy-workers.js",
+    "dev": "node ../../node_modules/tsup/dist/cli-default.js --watch",
+    "clean": "node -e \"require('fs').rmSync('dist', {recursive: true, force: true}); require('fs').rmSync('.cache', {recursive: true, force: true})\""
   },
   "dependencies": {
     "@site-generator/core": "workspace:*",
-    "unified": "^11.0.4",
-    "remark-parse": "^11.0.0",
-    "remark-frontmatter": "^5.0.0",
     "mdast-util-to-string": "^4.0.0",
-    "natural": "^6.12.0",
     "ml-kmeans": "^6.0.0",
-    "vectordb": "^0.4.9",
-    "p-limit": "^4.0.0"
+    "natural": "^6.12.0",
+    "p-limit": "^4.0.0",
+    "remark-frontmatter": "^5.0.0",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.4",
+    "vectordb": "^0.4.9"
   },
   "devDependencies": {
-    "tsup": "^8.0.0",
     "@types/node": "^20.0.0",
+    "tsup": "^8.5.0",
     "typescript": "^5.4.0"
   }
 }

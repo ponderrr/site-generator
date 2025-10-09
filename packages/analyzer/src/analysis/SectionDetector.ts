@@ -6,7 +6,7 @@ import type {
   SectionPattern,
   SectionIndicator,
   SectionCandidate,
-} from '../types/analysis.types';
+} from '../types/analysis.types.js';
 
 export class SectionDetector implements Analyzer {
   name = 'section-detector';

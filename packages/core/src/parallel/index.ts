@@ -1,4 +1,8 @@
-import { ParallelTask, ParallelResult, ResourceLimits } from '../types';
+import {
+  ParallelTask,
+  ParallelResult,
+  ResourceLimits,
+} from "../types/index.js";
 
 export interface ParallelProcessorOptions {
   maxConcurrency?: number;
@@ -19,11 +23,11 @@ export class ParallelProcessor {
         maxCpu: 100,
         maxConcurrency: 1000,
         maxFileSize: 100 * 1024 * 1024, // 100MB
-        maxRequests: 10000
+        maxRequests: 10000,
       },
       timeout: 30000,
       retryAttempts: 3,
-      ...options
+      ...options,
     };
   }
 
@@ -32,7 +36,7 @@ export class ParallelProcessor {
    */
   async process<T, R>(
     tasks: ParallelTask<T, R>[],
-    onProgress?: (completed: number, total: number) => void
+    onProgress?: (completed: number, total: number) => void,
   ): Promise<R[]> {
     const results: R[] = [];
     const batches: ParallelTask<T, R>[][] = [];
@@ -44,10 +48,12 @@ export class ParallelProcessor {
 
     let completed = 0;
     for (const batch of batches) {
-      const batchPromises = batch.map(task => this.executeTask(task));
+      const batchPromises = batch.map((task) => this.executeTask(task));
       const batchResults = await Promise.all(batchPromises);
 
-      results.push(...batchResults.map(r => r.data).filter(r => r !== undefined));
+      results.push(
+        ...batchResults.map((r) => r.data).filter((r) => r !== undefined),
+      );
 
       completed += batch.length;
       if (onProgress) {
@@ -61,7 +67,9 @@ export class ParallelProcessor {
   /**
    * Execute a single task with retry logic
    */
-  private async executeTask<T, R>(task: ParallelTask<T, R>): Promise<ParallelResult<R>> {
+  private async executeTask<T, R>(
+    task: ParallelTask<T, R>,
+  ): Promise<ParallelResult<R>> {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= this.options.retryAttempts; attempt++) {
@@ -69,7 +77,7 @@ export class ParallelProcessor {
         const startTime = Date.now();
         const result = await Promise.race([
           task.execute(task.data),
-          this.timeout(this.options.timeout)
+          this.timeout(this.options.timeout),
         ]);
 
         const duration = Date.now() - startTime;
@@ -77,7 +85,7 @@ export class ParallelProcessor {
           success: true,
           data: result,
           duration,
-          taskId: task.id
+          taskId: task.id,
         };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -93,7 +101,7 @@ export class ParallelProcessor {
       success: false,
       error: lastError || undefined,
       duration: 0,
-      taskId: task.id
+      taskId: task.id,
     };
   }
 
@@ -103,7 +111,7 @@ export class ParallelProcessor {
   async processWithRateLimit<T, R>(
     tasks: ParallelTask<T, R>[],
     requestsPerSecond: number,
-    onProgress?: (completed: number, total: number) => void
+    onProgress?: (completed: number, total: number) => void,
   ): Promise<R[]> {
     const results: R[] = [];
     const interval = 1000 / requestsPerSecond;
@@ -138,7 +146,7 @@ export class ParallelProcessor {
     return {
       activeTasks: this.activeTasks.size,
       maxConcurrency: this.options.maxConcurrency,
-      resourceLimits: this.options.resourceLimits
+      resourceLimits: this.options.resourceLimits,
     };
   }
 
@@ -151,12 +159,15 @@ export class ParallelProcessor {
 
   private timeout(ms: number): Promise<never> {
     return new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(`Operation timed out after ${ms}ms`)), ms);
+      setTimeout(
+        () => reject(new Error(`Operation timed out after ${ms}ms`)),
+        ms,
+      );
     });
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
