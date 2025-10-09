@@ -1,6 +1,6 @@
 brand:
   name: "Northshore Exterior Upkeep"
-  voice: "Friendly, trustworthy, local-service professional with environmental focus."
+  voice: "Professional, eco-friendly exterior cleaning specialists"
   reading_level: "8-11th grade"
   primary_cta: "Get a Free Quote"
   locations_emphasis: true
@@ -28,12 +28,9 @@ taxonomy:
 
 constants:
   company_name: "Northshore Exterior Upkeep"
-  phone: "(985) 662-8005"
+  phone: "(985)662-8005"
   email: "northshoreexteriorupkeep@gmail.com"
-  address: "Louisiana"
+  address: ""
   service_areas:
-    - Baton Rouge
-    - Slidell
-    - Covington
-    - Mandeville
-    - Hammond
+    - "Baton Rouge"
+    - "Slidell"

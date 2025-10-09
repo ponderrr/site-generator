@@ -1,0 +1,7 @@
+.next
+out
+node_modules
+dist
+content/pages
+data/route-map.json
+

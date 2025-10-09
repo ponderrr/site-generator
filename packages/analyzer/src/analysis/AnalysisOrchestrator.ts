@@ -53,7 +53,7 @@ export class AnalysisOrchestrator {
     // Determine worker path - in dist/, workers are at ./workers/, in src/ at ../workers/
     const workerPath = __filename.endsWith('.ts') 
       ? resolve(__dirname, '../workers/analysis-worker.ts')
-      : resolve(__dirname, './workers/analysis-worker.js');
+      : resolve(__dirname, '../workers/analysis-worker.js');
     
     this.workerPool = new Piscina({
       filename: workerPath,

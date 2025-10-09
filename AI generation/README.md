@@ -17,8 +17,19 @@ This pipeline combines Extractor + Analyzer outputs into an LLM-ready content pa
 
 ## Quick start
 
+### Automatic Business Detection (Recommended)
 ```bash
 cd "AI generation"
+node scripts/auto-detect-business.mjs  # Auto-detects business info
+python -m pip install -r requirements.txt
+python packager/package_site.py
+python drivers/generate_pages_ollama.py
+```
+
+### Manual Configuration
+```bash
+cd "AI generation"
+# Edit config/site.config.yaml manually
 python -m pip install -r requirements.txt
 python packager/package_site.py
 python drivers/generate_pages_ollama.py

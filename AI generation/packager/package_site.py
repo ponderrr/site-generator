@@ -37,6 +37,22 @@ def clean_md(md: str) -> str:
     md = re.sub(r"\n{3,}", "\n\n", md)
     return md.strip()
 
+def extract_images_from_markdown(md: str) -> List[Dict[str, str]]:
+    """Extract all images from markdown content."""
+    images = []
+    # Match markdown image syntax: ![alt](url)
+    pattern = r'!\[([^\]]*)\]\(([^\)]+)\)'
+    for match in re.finditer(pattern, md):
+        alt = match.group(1).strip()
+        url = match.group(2).strip()
+        if url:  # Only include if URL is not empty
+            images.append({
+                "url": url,
+                "alt": alt or "Image",
+                "title": alt or None
+            })
+    return images
+
 def build_record(stem: str,
                  md_path: Path,
                  meta_path: Path,
@@ -85,6 +101,9 @@ def build_record(stem: str,
     if isinstance(recs, dict):
         recs = [f"{k}: {v}" for k, v in recs.items()]
 
+    # Extract images from markdown content
+    extracted_images = extract_images_from_markdown(md)
+
     return {
         "id": stem,
         "url": url,
@@ -93,7 +112,7 @@ def build_record(stem: str,
         "scores": scores,
         "readability": {"flesch": metrics.get("flesch") or analysis.get("flesch_score")},
         "structure": structure,
-        "images": meta.get("images", []),
+        "images": extracted_images,  # Use extracted images from markdown
         "links": meta.get("links", []),
         "word_count": meta.get("word_count"),
         "reading_time_minutes": meta.get("reading_time_minutes"),

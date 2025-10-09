@@ -1,0 +1,40 @@
+{
+  "name": "generator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "node scripts/prebuild.mjs && next build",
+    "start": "next start",
+    "predev": "node scripts/prebuild.mjs",
+    "generate:tokens": "node scripts/generate-tokens.mjs",
+    "generate:routes": "node scripts/build-route-map.mjs",
+    "generate:frontmatter": "node scripts/inject-frontmatter.mjs",
+    "generate:copy": "node scripts/copy-generated.mjs",
+    "validate:links": "node scripts/validate-links.mjs",
+    "prettify": "prettier -w ."
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3",
+    "next": "14.2.5",
+    "next-mdx-remote": "^5.0.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remark-gfm": "^4.0.0",
+    "yaml": "^2.5.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.1.14",
+    "@types/node": "^20.12.13",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "autoprefixer": "10.4.21",
+    "postcss": "8.5.6",
+    "prettier": "^3.3.3",
+    "tailwindcss": "4.1.14",
+    "typescript": "^5.4.5"
+  }
+}
+
+
