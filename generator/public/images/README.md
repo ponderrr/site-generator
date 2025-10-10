@@ -5,12 +5,12 @@ This directory contains images for the website.
 ## Required Images
 
 ### Hero Image
-- **File**: `pressure-wash-hero.jpg`
+- **File**: `hero.jpg` (or any name referenced in your config)
 - **Size**: 1200x600px (recommended)
 - **Description**: Main hero image for the homepage
-- **Alt text**: "Professional pressure washing in progress"
+- **Alt text**: Should describe your business/service
 
-### Before/After Images
+### Before/After Images (if applicable)
 - **File**: `before.jpg` and `after.jpg`
 - **Size**: 800x600px (recommended)
 - **Description**: Before and after comparison images for the slider
@@ -20,16 +20,12 @@ This directory contains images for the website.
 If you don't have actual images yet, you can use placeholder services:
 
 ### Using placehold.co
-- Hero: `https://placehold.co/1200x600/0ea5e9/white?text=Professional+Exterior+Cleaning`
+- Hero: `https://placehold.co/1200x600/0ea5e9/white?text=Your+Business+Name`
 - Before: `https://placehold.co/800x600/94a3b8/white?text=Before`
 - After: `https://placehold.co/800x600/10b981/white?text=After`
 
 ### Using Unsplash
-Search for:
-- "pressure washing"
-- "house washing"
-- "exterior cleaning"
-- "power washing"
+Search for images related to your business type and industry
 
 ## Image Optimization Tips
 

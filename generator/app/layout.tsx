@@ -1,10 +1,29 @@
 import "./globals.css";
 import tokens from "@themes/default/tokens";
+import routeMap from "../data/route-map.json";
 
 export const metadata = {
   title: tokens.brandName,
   description: tokens.tagline
 };
+
+// Generate navigation items from route-map
+// Priority navigation items - shown in header and footer
+const priorityUrls = ['/', '/services', '/our-work', '/about', '/contact'];
+const navItems = routeMap.routes
+  .filter((route: any) => priorityUrls.includes(route.url))
+  .sort((a: any, b: any) => priorityUrls.indexOf(a.url) - priorityUrls.indexOf(b.url))
+  .map((route: any) => ({
+    url: route.url,
+    label: route.url === '/' ? tokens.brandName : (route.title || route.url.split('/').pop() || 'Page')
+  }));
+
+// Fallback to basic nav if route-map has no routes
+const defaultNav = navItems.length > 0 ? navItems : [
+  { url: '/', label: tokens.brandName },
+  { url: '/services', label: 'Services' },
+  { url: '/contact', label: 'Contact' }
+];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -16,10 +35,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {tokens.brandName}
             </a>
             <nav className="nav-links">
-              <a href="/" className="nav-link">Home</a>
-              <a href="/services" className="nav-link">Services</a>
-              <a href="/our-work" className="nav-link">Our Work</a>
-              <a href="/contact" className="nav-link">Contact</a>
+              {defaultNav.map((item) => (
+                <a key={item.url} href={item.url} className="nav-link">
+                  {item.label}
+                </a>
+              ))}
             </nav>
           </div>
         </header>
@@ -39,10 +59,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div>
                 <h4 style={{ color: 'white', marginBottom: '16px' }}>Quick Links</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <a href="/" style={{ color: '#94a3b8' }}>Home</a>
-                  <a href="/services" style={{ color: '#94a3b8' }}>Services</a>
-                  <a href="/our-work" style={{ color: '#94a3b8' }}>Our Work</a>
-                  <a href="/contact" style={{ color: '#94a3b8' }}>Contact</a>
+                  {defaultNav.map((item) => (
+                    <a key={item.url} href={item.url} style={{ color: '#94a3b8' }}>
+                      {item.label}
+                    </a>
+                  ))}
                 </div>
               </div>
               <div>

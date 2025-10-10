@@ -12,7 +12,7 @@ export default function BlogTemplate({ meta, tokens, children }:{
     <Layout title={meta.title} description={meta.description}>
       <PageHeader title={meta.title || "Blog"} subtitle={meta.description} />
       <Section>{children}</Section>
-      <Section><CTA label="Get a Free Quote" /></Section>
+      <Section><CTA label={tokens?.copy?.genericCtaLabel || tokens?.primaryCta} /></Section>
     </Layout>
   );
 }

@@ -9,8 +9,12 @@ export default function OtherTemplate({ meta, tokens, children }:{
       <section className="page-hero">
         <div className="page-hero-overlay"></div>
         <div className="hero-content">
-          <h1 className="hero-title">{meta?.title || 'Our Work'}</h1>
-          <p className="hero-subtitle">{meta?.description || 'See the quality of our professional cleaning services'}</p>
+          <h1 className="hero-title">
+            {meta?.title || tokens?.copy?.otherHeroFallback || 'Our Work'}
+          </h1>
+          <p className="hero-subtitle">
+            {meta?.description || tokens?.copy?.otherDescriptionFallback || ''}
+          </p>
         </div>
       </section>
 
@@ -39,12 +43,14 @@ export default function OtherTemplate({ meta, tokens, children }:{
 
       <section className="section section-alt" style={{ textAlign: 'center' }}>
         <div className="container">
-          <h2 style={{ fontSize: '2.5rem', marginBottom: '24px', color: 'var(--text)' }} className="animate-fade-in-up">Impressed by Our Work?</h2>
+          <h2 style={{ fontSize: '2.5rem', marginBottom: '24px', color: 'var(--text)' }} className="animate-fade-in-up">
+            {tokens?.copy?.otherCtaHeading || 'Impressed by Our Work?'}
+          </h2>
           <p style={{ fontSize: '1.25rem', color: 'var(--text-light)', marginBottom: '40px', maxWidth: '600px', margin: '0 auto 40px' }} className="animate-fade-in-up">
-            Let us transform your property with our professional cleaning services
+            {tokens?.copy?.otherCtaText || 'Let us help with your next project'}
           </p>
           <a href="/contact" className="btn-primary animate-fade-in-up">
-            Get Your Free Quote
+            {tokens?.primaryCta || 'Get Started'}
           </a>
         </div>
       </section>

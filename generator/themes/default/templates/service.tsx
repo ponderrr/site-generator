@@ -9,8 +9,12 @@ export default function ServiceTemplate({ meta, tokens, children }:{
       <section className="page-hero">
         <div className="page-hero-overlay"></div>
         <div className="hero-content">
-          <h1 className="hero-title">{meta?.title || 'Our Services'}</h1>
-          <p className="hero-subtitle">{meta?.description || 'Professional exterior cleaning services to keep your property looking its best'}</p>
+          <h1 className="hero-title">
+            {meta?.title || tokens?.copy?.serviceHeroFallback || 'Our Services'}
+          </h1>
+          <p className="hero-subtitle">
+            {meta?.description || tokens?.copy?.serviceDescriptionFallback || ''}
+          </p>
         </div>
       </section>
 
@@ -25,12 +29,14 @@ export default function ServiceTemplate({ meta, tokens, children }:{
 
       <section className="section section-alt" style={{ textAlign: 'center' }}>
         <div className="container">
-          <h2 style={{ fontSize: '2.5rem', marginBottom: '24px', color: 'var(--text)' }} className="animate-fade-in-up">Ready to Get Started?</h2>
+          <h2 style={{ fontSize: '2.5rem', marginBottom: '24px', color: 'var(--text)' }} className="animate-fade-in-up">
+            {tokens?.copy?.serviceCtaHeading || 'Ready to Get Started?'}
+          </h2>
           <p style={{ fontSize: '1.25rem', color: 'var(--text-light)', marginBottom: '40px', maxWidth: '600px', margin: '0 auto 40px' }} className="animate-fade-in-up">
-            Contact us today for a free quote on any of our services
+            {tokens?.copy?.serviceCtaText || 'Contact us today for more information'}
           </p>
           <a href="/contact" className="btn-primary animate-fade-in-up">
-            {tokens.primaryCta || "Get a Free Quote"}
+            {tokens?.primaryCta || "Get Started"}
           </a>
         </div>
       </section>

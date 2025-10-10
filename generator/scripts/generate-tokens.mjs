@@ -4,54 +4,61 @@ import path from "node:path";
 const CONFIG_PATH = path.resolve("../AI generation/config/site.config.yaml");
 const TOKENS_OUTPUT = path.resolve("themes/default/tokens.ts");
 
-// Simple YAML parser for our config structure
+// Enhanced YAML parser for nested config structure
 function parseYaml(yamlText) {
   const lines = yamlText.split('\n');
   const result = {};
-  let currentSection = null;
-  let currentKey = null;
+  const stack = [{ obj: result, indent: -1 }];
   
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
     
-    // Section headers (no indentation, ends with :)
-    if (!line.startsWith(' ') && line.includes(':') && !line.includes(': ')) {
-      currentSection = line.replace(':', '').trim();
-      result[currentSection] = {};
-      currentKey = currentSection;
+    const indent = line.search(/\S/);
+    const match = line.match(/^\s*([^:]+):\s*(.*)$/);
+    const listMatch = line.match(/^\s*-\s+(.+)$/);
+    
+    // Handle list items
+    if (listMatch) {
+      const value = listMatch[1].trim();
+      const cleanValue = value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value;
+      const parent = stack[stack.length - 1].obj;
+      const lastKey = Object.keys(parent).pop();
+      
+      if (!Array.isArray(parent[lastKey])) {
+        parent[lastKey] = [];
+      }
+      parent[lastKey].push(cleanValue);
       continue;
     }
     
-    // Key-value pairs
-    const match = line.match(/^\s*([^:]+):\s*(.*)$/);
+    // Handle key-value pairs
     if (match) {
       const key = match[1].trim();
       let value = match[2].trim();
       
-      // Handle different value types
-      if (value === 'true') value = true;
-      else if (value === 'false') value = false;
-      else if (value.match(/^\d+$/)) value = parseInt(value);
-      else if (value.startsWith('"') && value.endsWith('"')) {
-        value = value.slice(1, -1);
+      // Pop stack to correct level
+      while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
+        stack.pop();
       }
       
-      if (currentSection && result[currentSection]) {
-        result[currentSection][key] = value;
+      const parent = stack[stack.length - 1].obj;
+      
+      // Handle different value types
+      if (!value) {
+        // Key with nested values
+        parent[key] = {};
+        stack.push({ obj: parent[key], indent });
       } else {
-        result[key] = value;
+        // Key with immediate value
+        if (value === 'true') value = true;
+        else if (value === 'false') value = false;
+        else if (value.match(/^\d+$/)) value = parseInt(value);
+        else if (value.startsWith('"') && value.endsWith('"')) {
+          value = value.slice(1, -1);
+        }
+        parent[key] = value;
       }
-    }
-    
-    // List items
-    const listMatch = line.match(/^\s*-\s+(.+)$/);
-    if (listMatch && currentSection) {
-      const lastKey = Object.keys(result[currentSection]).pop();
-      if (!Array.isArray(result[currentSection][lastKey])) {
-        result[currentSection][lastKey] = [];
-      }
-      result[currentSection][lastKey].push(listMatch[1].trim());
     }
   }
   
@@ -79,6 +86,59 @@ try {
       : "",
     serviceAreaCities: config.constants?.service_areas || [],
     primaryCta: config.brand?.primary_cta || "Get a Free Quote",
+    secondaryCta: config.brand?.secondary_cta || "Learn More",
+    
+    // Business hours
+    hours: {
+      days: config.brand?.hours?.days || "Monday - Friday",
+      time: config.brand?.hours?.time || "9:00 AM - 6:00 PM",
+      note: config.brand?.copy?.contact_hours_note || "Contact us to schedule an appointment"
+    },
+    
+    // Copy/text configuration
+    copy: {
+      // Homepage
+      homepageHeroFallback: config.brand?.copy?.homepage_hero_fallback || "Welcome to Our Business",
+      homepageCtaHeading: config.brand?.copy?.homepage_cta_heading || "Ready to Get Started?",
+      homepageCtaText: config.brand?.copy?.homepage_cta_text || "Get in touch today for a free consultation",
+      
+      // Contact page
+      contactHeroFallback: config.brand?.copy?.contact_hero_fallback || "Get in Touch",
+      contactSubtitle: config.brand?.copy?.contact_subtitle || "We're here to help with your needs",
+      contactHeading: config.brand?.copy?.contact_heading || "Get in Touch",
+      contactSubheading: config.brand?.copy?.contact_subheading || "Ready to get started? Contact us today.",
+      contactHoursHeading: config.brand?.copy?.contact_hours_heading || "Business Hours",
+      contactHoursSubtitle: config.brand?.copy?.contact_hours_subtitle || "We're here when you need us most.",
+      contactButtonCall: config.brand?.copy?.contact_button_call || "Call Now",
+      contactButtonEmail: config.brand?.copy?.contact_button_email || "Email Us",
+      
+      // Service page
+      serviceHeroFallback: config.brand?.copy?.service_hero_fallback || "Our Services",
+      serviceDescriptionFallback: config.brand?.copy?.service_description_fallback || "Quality services tailored to your needs",
+      serviceCtaHeading: config.brand?.copy?.service_cta_heading || "Ready to Get Started?",
+      serviceCtaText: config.brand?.copy?.service_cta_text || "Contact us today for more information",
+      
+      // Other/Gallery page
+      otherHeroFallback: config.brand?.copy?.other_hero_fallback || "Our Work",
+      otherDescriptionFallback: config.brand?.copy?.other_description_fallback || "See the quality of our work",
+      otherCtaHeading: config.brand?.copy?.other_cta_heading || "Impressed by Our Work?",
+      otherCtaText: config.brand?.copy?.other_cta_text || "Let us help with your next project",
+      
+      // Generic CTA
+      genericCtaLabel: config.brand?.copy?.generic_cta_label || "Get a Free Quote",
+      
+      // Section labels
+      labelPhone: config.brand?.copy?.label_phone || "Phone",
+      labelEmail: config.brand?.copy?.label_email || "Email",
+      labelServiceAreas: config.brand?.copy?.label_service_areas || "Service Areas"
+    },
+    
+    // Images
+    images: {
+      contactMain: config.brand?.images?.contact_main || "",
+      contactHours: config.brand?.images?.contact_hours || ""
+    },
+    
     colors: {
       primary: "#0ea5e9",
       primaryDark: "#0284c7",

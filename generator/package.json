@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/prebuild.mjs && next build",
-    "start": "next start",
+    "start": "npx serve@latest out",
+    "preview": "npx serve@latest out",
     "predev": "node scripts/prebuild.mjs",
     "generate:tokens": "node scripts/generate-tokens.mjs",
     "generate:routes": "node scripts/build-route-map.mjs",

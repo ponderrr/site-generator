@@ -49,12 +49,15 @@ function getFileForUrl(slugSegments: string[]) {
   return entry;
 }
 
-export function generateStaticParams() {
-  return (routeMap.routes as RouteEntry[])
+export async function generateStaticParams() {
+  const routes = (routeMap.routes as RouteEntry[])
     .filter(r => r.url !== "/")
     .map((route) => ({
-      slug: route.slug === "index" ? [] : route.slug.split("/")
+      slug: route.slug === "index" ? [] : route.slug.split("/").filter(Boolean)
     }));
+  
+  console.log("generateStaticParams:", routes.length, "routes");
+  return routes;
 }
 
 export default async function Page({ params }: { params: { slug?: string[] } }) {

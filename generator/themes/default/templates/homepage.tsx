@@ -9,8 +9,10 @@ export default function HomepageTemplate({ meta, tokens, children }:{
       <section className="modern-hero">
         <div className="hero-overlay">
           <div className="hero-content">
-            <h1 className="hero-title">{meta.title || tokens?.brandName || "Welcome"}</h1>
-            <p className="hero-subtitle">{tokens?.tagline || "Professional services for your needs"}</p>
+            <h1 className="hero-title">
+              {tokens?.brandName || meta.title || tokens?.copy?.homepageHeroFallback || "Welcome"}
+            </h1>
+            <p className="hero-subtitle">{tokens?.tagline || ""}</p>
             <a href="/contact" className="hero-cta">
               {tokens?.primaryCta || "Get Started"}
             </a>
@@ -33,8 +35,8 @@ export default function HomepageTemplate({ meta, tokens, children }:{
       <section className="cta-section">
         <div className="container">
           <div className="cta-content">
-            <h2>Ready to Get Started?</h2>
-            <p>Get in touch today for a free consultation</p>
+            <h2>{tokens?.copy?.homepageCtaHeading || "Ready to Get Started?"}</h2>
+            <p>{tokens?.copy?.homepageCtaText || "Get in touch today"}</p>
             <a href="/contact" className="btn btn-primary">
               {tokens?.primaryCta || "Contact Us"}
             </a>
